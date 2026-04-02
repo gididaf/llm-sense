@@ -6,7 +6,7 @@ const program = new Command();
 program
   .name('llm-sense')
   .description('Analyze how LLM-friendly a codebase is')
-  .version('0.1.0')
+  .version('0.2.0')
   .option('--path <dir>', 'Path to the codebase to analyze', '.')
   .option('--bugs <n>', 'Number of synthetic bug tasks', '5')
   .option('--features <n>', 'Number of synthetic feature tasks', '5')
