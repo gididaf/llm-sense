@@ -7,16 +7,18 @@ import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { ClaudeCliError } from '../types.js';
 
-// Resolve the actual claude binary path (not shell functions/aliases)
+// `claude` may be a shell function (e.g., wrapping --dangerously-skip-permissions in sandboxed envs).
+// We need the real binary path to spawn it directly via sh, so we use `command -v` which
+// bypasses functions/aliases and returns the actual binary on disk.
 let resolvedClaudePath: string | null = null;
 
 async function getClaudeBinaryPath(): Promise<string> {
   if (resolvedClaudePath) return resolvedClaudePath;
 
+  // Use the user's login shell to inherit PATH from their profile (.zshrc, .bashrc, etc.)
   const shell = process.env.SHELL || '/bin/zsh';
 
   return new Promise<string>((resolve, reject) => {
-    // 'command -v' skips shell functions and finds the actual binary
     const proc = spawn(shell, ['-lc', 'command -v claude'], {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -72,10 +74,14 @@ export interface ClaudeResult {
   stopReason: string;
 }
 
+// Fallback JSON extraction for when Claude wraps JSON in markdown fences or prose.
+// Used by callClaudeJSON when direct JSON.parse fails.
 function extractJSON(text: string): string {
+  // Try markdown fence first (```json ... ```)
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenceMatch) return fenceMatch[1].trim();
 
+  // Fall back to finding the outermost { ... } pair
   const firstBrace = text.indexOf('{');
   const lastBrace = text.lastIndexOf('}');
   if (firstBrace !== -1 && lastBrace > firstBrace) {
@@ -120,6 +126,8 @@ export async function callClaude(options: ClaudeOptions): Promise<ClaudeResult> 
   const startTime = Date.now();
   const claudeBin = await getClaudeBinaryPath();
 
+  // Write prompt to a temp file and pipe via `cat` to avoid shell escaping issues
+  // with complex prompts that contain quotes, backticks, or special characters.
   const tmpFile = join(tmpdir(), `llm-sense-prompt-${randomBytes(8).toString('hex')}.txt`);
   await writeFile(tmpFile, prompt, 'utf-8');
 
@@ -127,7 +135,7 @@ export async function callClaude(options: ClaudeOptions): Promise<ClaudeResult> 
     return await new Promise<ClaudeResult>((resolve, reject) => {
       const shellCmd = buildCommand(tmpFile, claudeBin, options);
 
-      // Use sh since we already resolved the full binary path
+      // Spawn via sh — we already resolved the full binary path so no login shell needed
       const proc = spawn('sh', ['-c', shellCmd], {
         cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -238,10 +246,14 @@ export async function callClaudeJSON<T>(
   return { data: validated.data, result };
 }
 
+// Uses Claude CLI's --json-schema flag for guaranteed structured output.
+// The CLI validates the response against the schema before returning, so we get
+// type-safe data without relying on prompt-based JSON generation.
 export async function callClaudeStructured<T>(
   options: ClaudeOptions,
   schema: z.ZodType<T>,
 ): Promise<{ data: T; result: ClaudeResult }> {
+  // Convert Zod schema → JSON Schema for the --json-schema CLI flag
   const jsonSchema = zodToJsonSchema(schema);
   const { prompt, cwd, timeout = 300_000 } = options;
   const startTime = Date.now();
@@ -325,6 +337,8 @@ export async function callClaudeStructured<T>(
   }
 }
 
+// Retry wrapper for transient Claude API failures (timeouts, rate limits, overload).
+// Non-transient errors (auth failures, schema mismatches) are thrown immediately.
 export async function callClaudeWithRetry<T>(
   fn: () => Promise<T>,
   maxRetries: number = 2,
@@ -337,6 +351,7 @@ export async function callClaudeWithRetry<T>(
     } catch (error) {
       lastError = error as Error;
       if (attempt < maxRetries) {
+        // Only retry on transient errors — permanent failures should fail fast
         const isTransient = error instanceof ClaudeCliError &&
           (error.message.includes('timed out') || error.message.includes('429') || error.message.includes('overloaded'));
         if (isTransient) {

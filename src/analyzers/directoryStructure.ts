@@ -2,6 +2,9 @@ import { getDirs, getSourceFiles, type WalkEntry } from '../core/fs.js';
 import type { DirectoryStructureResult } from '../types.js';
 import { dirname } from 'node:path';
 
+// Measures directory tree shape: depth, breadth, and file distribution.
+// LLMs navigate codebases via directory listings, so the tree shape directly impacts
+// how many tool calls are needed to find relevant code.
 export function analyzeDirectoryStructure(entries: WalkEntry[]): DirectoryStructureResult {
   const dirs = getDirs(entries);
   const sourceFiles = getSourceFiles(entries);

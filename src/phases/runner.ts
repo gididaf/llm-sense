@@ -4,10 +4,10 @@ import { resolve } from 'node:path';
 import chalk from 'chalk';
 import { isClaudeInstalled } from '../core/claude.js';
 import { getPreviousScore, saveHistory } from '../core/history.js';
-import { runStaticAnalysis } from './static-analysis.js';
-import { runLlmUnderstanding } from './llm-understanding.js';
-import { runTaskGeneration } from './task-generation.js';
-import { runEmpiricalTesting } from './empirical-testing.js';
+import { runStaticAnalysis } from './staticAnalysis.js';
+import { runLlmUnderstanding } from './llmUnderstanding.js';
+import { runTaskGeneration } from './taskGeneration.js';
+import { runEmpiricalTesting } from './empiricalTesting.js';
 import { computeScores } from './scoring.js';
 import { generateReport, buildExecutableRecommendations } from '../report/generator.js';
 import { cleanupAll } from '../core/isolation.js';
@@ -115,7 +115,9 @@ export async function run(options: CliOptions): Promise<void> {
     }
   }
 
-  // Phase 5: Scoring
+  // Phase 5: Scoring — uses different weight distributions for static-only vs full empirical.
+  // When empirical is skipped (or failed), Task Completion and Token Efficiency are excluded
+  // and their weights redistributed to static categories.
   const skipEmpirical = options.skipEmpirical || taskResults.length === 0;
   console.log(chalk.yellow('Phase 5:') + ' Scoring');
   const { categories, overallScore, grade } = computeScores(staticResult, taskResults, skipEmpirical);

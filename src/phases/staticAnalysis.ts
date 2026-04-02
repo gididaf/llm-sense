@@ -1,6 +1,6 @@
 import { walkDir, type WalkEntry } from '../core/fs.js';
-import { analyzeFileSizes } from '../analyzers/file-sizes.js';
-import { analyzeDirectoryStructure } from '../analyzers/directory-structure.js';
+import { analyzeFileSizes } from '../analyzers/fileSizes.js';
+import { analyzeDirectoryStructure } from '../analyzers/directoryStructure.js';
 import { analyzeNaming } from '../analyzers/naming.js';
 import { analyzeDocumentation } from '../analyzers/documentation.js';
 import { analyzeImports } from '../analyzers/imports.js';

@@ -8,12 +8,14 @@ function clamp(value: number, min: number = 0, max: number = 100): number {
 export function scoreFileSizes(s: StaticAnalysisResult['fileSizes']): CategoryScore {
   if (s.totalFiles === 0) return { name: 'File Sizes', score: 100, weight: 0, findings: ['No source files found'], recommendations: [] };
 
-  // Median: 50 lines = 100, 450 lines = 0
+  // Linear scale: 50-line median is perfect (100), 450+ is worst (0).
+  // LLMs work best with focused files that fit comfortably in context.
   const medianScore = clamp(100 - ((s.medianLines - 50) / 4));
-  // P90: 100 lines = 100, 1000 lines = 0
+  // P90 measures the long tail: 100 lines = perfect, 1000+ = worst
   const p90Score = clamp(100 - ((s.p90Lines - 100) / 9));
-  // Penalty for giant files
+  // Each 1000+ line file costs 5 pts (capped at 30) — these are "god files"
   const giantPenalty = Math.min(s.filesOver1000Lines * 5, 30);
+  // 40% median + 40% P90 + 20% baseline minus giant file penalties
   const score = clamp(medianScore * 0.4 + p90Score * 0.4 + 20 - giantPenalty);
 
   const findings: string[] = [];
@@ -33,14 +35,22 @@ export function scoreFileSizes(s: StaticAnalysisResult['fileSizes']): CategorySc
   return { name: 'File Sizes', score, weight: 0, findings, recommendations };
 }
 
-export function scoreStructure(s: StaticAnalysisResult['directoryStructure']): CategoryScore {
-  // Depth: 3-5 = ideal, >8 = too deep, <2 = too flat
+export function scoreStructure(s: StaticAnalysisResult['directoryStructure'], totalSourceFiles: number): CategoryScore {
+  // Depth scoring is scaled by project size. A 20-file project at depth 2 is fine;
+  // a 500-file project at depth 2 means everything is dumped in a few flat directories.
+  // Small projects (<50 files): depth 2+ is ideal
+  // Medium projects (50-200): depth 3+ is ideal
+  // Large projects (200+): depth 3-6 is ideal
   let depthScore: number;
-  if (s.maxDepth >= 3 && s.maxDepth <= 6) depthScore = 100;
-  else if (s.maxDepth <= 2) depthScore = 60;
+  const isSmallProject = totalSourceFiles < 50;
+  const idealMinDepth = isSmallProject ? 2 : 3;
+
+  if (s.maxDepth >= idealMinDepth && s.maxDepth <= 6) depthScore = 100;
+  else if (s.maxDepth < idealMinDepth) depthScore = isSmallProject ? 80 : 60;
   else depthScore = clamp(100 - (s.maxDepth - 6) * 10);
 
-  // Files per dir: 3-15 = ideal
+  // 3-15 files per dir is the sweet spot for LLM directory listing comprehension.
+  // Above 15 the LLM must read many file names to find what it needs.
   let filesPerDirScore: number;
   if (s.avgFilesPerDir >= 3 && s.avgFilesPerDir <= 15) filesPerDirScore = 100;
   else if (s.avgFilesPerDir > 15) filesPerDirScore = clamp(100 - (s.avgFilesPerDir - 15) * 3);
@@ -54,6 +64,9 @@ export function scoreStructure(s: StaticAnalysisResult['directoryStructure']): C
   ];
   const recommendations: string[] = [];
 
+  if (s.maxDepth < idealMinDepth && !isSmallProject) {
+    recommendations.push(`Directory structure is too flat for a ${totalSourceFiles}-file project — add sub-directories to organize by domain or feature`);
+  }
   if (s.maxDepth > 8) recommendations.push('Reduce directory nesting — deep paths are harder for LLMs to navigate');
   if (s.maxFilesInDir.count > 30) {
     recommendations.push(`Split \`${s.maxFilesInDir.path}\` (${s.maxFilesInDir.count} files) into sub-directories`);
@@ -68,9 +81,9 @@ export function scoreNaming(s: StaticAnalysisResult['naming']): CategoryScore {
   const findings = [`Dominant convention: ${s.dominantConvention}, ${score}% consistency`];
   const recommendations: string[] = [];
 
-  if (score < 80) {
+  if (score < 90 && s.inconsistencies.length > 0) {
     recommendations.push(`Standardize file naming to ${s.dominantConvention} convention`);
-    for (const inc of s.inconsistencies.slice(0, 3)) {
+    for (const inc of s.inconsistencies.slice(0, 5)) {
       recommendations.push(`Rename: ${inc}`);
     }
   }
@@ -79,6 +92,14 @@ export function scoreNaming(s: StaticAnalysisResult['naming']): CategoryScore {
 }
 
 export function scoreDocumentation(s: StaticAnalysisResult['documentation']): CategoryScore {
+  // Documentation scoring breakdown (100 total):
+  //   README.md:              10 pts (5 exists + 5 if >50 lines)
+  //   CLAUDE.md existence:    10 pts
+  //   CLAUDE.md content:      40 pts (5 per section × 8 essential sections)
+  //   Vibe coder AI configs:  10 pts (3 per tool detected, 2 bonus for .claude/)
+  //   Inline comment ratio:   15 pts (scales linearly, maxes at 10% ratio)
+  //   Baseline:               10 pts (any project with source files)
+  //   Subdirectory CLAUDE.md:  5 pts (2 per file, capped)
   let score = 0;
   const findings: string[] = [];
   const recommendations: string[] = [];
@@ -153,8 +174,9 @@ export function scoreDocumentation(s: StaticAnalysisResult['documentation']): Ca
 }
 
 export function scoreModularity(s: StaticAnalysisResult['modularity']): CategoryScore {
-  // Ideal: 3-10 files per directory, few single-file directories
-  let score = 70; // baseline
+  // Measures how well code is organized into cohesive modules.
+  // Single-file directories suggest over-splitting; many-file directories suggest under-splitting.
+  let score = 70; // baseline — most organized projects start here
 
   if (s.avgFilesPerDirectory >= 3 && s.avgFilesPerDirectory <= 10) score += 15;
   else if (s.avgFilesPerDirectory > 10) score -= Math.min((s.avgFilesPerDirectory - 10) * 2, 20);
@@ -184,10 +206,12 @@ export function scoreModularity(s: StaticAnalysisResult['modularity']): Category
 }
 
 export function scoreContextEfficiency(s: StaticAnalysisResult['noise']): CategoryScore {
-  // Start at 70 (baseline for any organized project)
+  // Measures how much of the repo is useful code vs noise (generated files, binaries, lockfiles).
+  // High noise means the LLM wastes tokens reading irrelevant files during exploration.
   let score = 70;
 
-  // Source ratio: penalize only if extremely low (<10%)
+  // Source ratio thresholds — most real projects have 15-30% source files (the rest is
+  // node_modules in git, assets, configs, etc). Only penalize extremes.
   if (s.sourceToNoiseRatio < 0.10) score -= 20;
   else if (s.sourceToNoiseRatio < 0.20) score -= 5;
   else if (s.sourceToNoiseRatio > 0.50) score += 15;
@@ -227,10 +251,12 @@ export function scoreTaskCompletion(taskResults: TaskExecutionResult[]): Categor
   const successCount = taskResults.filter(r => r.success).length;
   const successRate = successCount / taskResults.length;
 
-  // Bonus for efficient completion (fewer turns used relative to max)
+  // Efficiency bonus rewards codebases where tasks complete in fewer turns.
+  // A codebase that lets Claude solve tasks in 5/30 turns is better than one
+  // that takes 29/30 turns, even if both "pass". Only kicks in above 50% success.
   const successful = taskResults.filter(r => r.success);
   const avgTurnRatio = successful.length > 0
-    ? successful.reduce((sum, r) => sum + r.numTurns, 0) / (successful.length * 30) // assuming 30 max turns
+    ? successful.reduce((sum, r) => sum + r.numTurns, 0) / (successful.length * 30)
     : 1;
   const efficiencyBonus = successRate > 0.5 ? (1 - avgTurnRatio) * 20 : 0;
 
@@ -262,7 +288,8 @@ export function scoreTokenEfficiency(taskResults: TaskExecutionResult[]): Catego
   const avgTokens = successful.reduce((sum, r) =>
     sum + r.tokenUsage.inputTokens + r.tokenUsage.outputTokens, 0) / successful.length;
 
-  // 10k tokens = 100, 100k = 50, 500k+ = 0
+  // Linear scale from 10K tokens (perfect) to 500K+ (worst).
+  // Well-structured codebases let LLMs load less context per task.
   const score = clamp(100 - ((avgTokens - 10000) / 5000));
 
   const findings = [
@@ -289,7 +316,7 @@ export function computeScores(
   const categories: CategoryScore[] = [
     { ...scoreDocumentation(staticResult.documentation), weight: weights.documentation },
     { ...scoreFileSizes(staticResult.fileSizes), weight: weights.fileSizes },
-    { ...scoreStructure(staticResult.directoryStructure), weight: weights.structure },
+    { ...scoreStructure(staticResult.directoryStructure, staticResult.fileSizes.totalFiles), weight: weights.structure },
     { ...scoreModularity(staticResult.modularity), weight: weights.modularity },
     { ...scoreContextEfficiency(staticResult.noise), weight: weights.contextEfficiency },
     { ...scoreNaming(staticResult.naming), weight: weights.naming },

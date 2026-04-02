@@ -4,10 +4,11 @@ import type { NamingResult } from '../types.js';
 
 type Convention = 'camelCase' | 'PascalCase' | 'kebab-case' | 'snake_case' | 'unknown';
 
+// Detects the naming convention of a single file.
+// Strips extensions and common suffixes (.test, .spec, etc.) before classifying,
+// so "userService.test.ts" is classified by "userService", not "userService.test".
 function detectConvention(name: string): Convention {
-  // Remove extension
   const base = name.replace(/\.[^.]+$/, '');
-  // Remove common suffixes like .test, .spec, .stories
   const cleaned = base.replace(/\.(test|spec|stories|styles|module|config|d)$/i, '');
 
   if (/^[a-z][a-zA-Z0-9]*$/.test(cleaned)) return 'camelCase';
@@ -17,6 +18,8 @@ function detectConvention(name: string): Convention {
   return 'unknown';
 }
 
+// Consistent naming helps LLMs predict file locations without listing directories.
+// If all files use camelCase, the LLM can guess "userService.ts" exists without looking.
 export function analyzeNaming(entries: WalkEntry[]): NamingResult {
   const sourceFiles = getSourceFiles(entries);
   if (sourceFiles.length === 0) {

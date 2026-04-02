@@ -12,6 +12,8 @@ export interface IsolationContext {
   cleanup: () => Promise<void>;
 }
 
+// Track active isolations so we can clean up on SIGINT/SIGTERM — leaked worktrees
+// would leave detached branches in the user's repo.
 const activeIsolations: IsolationContext[] = [];
 
 function exec(cmd: string, args: string[], cwd?: string): Promise<string> {
@@ -26,6 +28,9 @@ function exec(cmd: string, args: string[], cwd?: string): Promise<string> {
   });
 }
 
+// Creates an isolated copy of the codebase for empirical testing.
+// Git repos use worktrees (fast, shares object store). Non-git repos fall back to
+// rsync + git init (slower, but lets us still diff changes after task execution).
 export async function createIsolation(
   targetPath: string,
   taskId: string,
@@ -89,7 +94,7 @@ async function createTmpdirIsolation(
       `${copyPath}/`,
     ]);
 
-    // Initialize a git repo so we can diff after
+    // Initialize a fresh git repo so we can diff after task execution to see what changed
     await exec('git', ['init'], copyPath);
     await exec('git', ['-c', 'user.name=llm-sense', '-c', 'user.email=noreply@llm-sense', 'add', '-A'], copyPath);
     await exec('git', ['-c', 'user.name=llm-sense', '-c', 'user.email=noreply@llm-sense', 'commit', '-m', 'baseline', '--allow-empty'], copyPath);

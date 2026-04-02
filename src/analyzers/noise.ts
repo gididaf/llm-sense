@@ -2,6 +2,8 @@ import { isBinaryFile, isSourceFile, type WalkEntry } from '../core/fs.js';
 import { GENERATED_PATTERNS, LOCKFILE_NAMES } from '../constants.js';
 import type { NoiseResult } from '../types.js';
 
+// Measures the signal-to-noise ratio: what fraction of files are actual source code
+// vs generated files, binaries, and lockfiles that waste LLM context tokens.
 export function analyzeNoise(entries: WalkEntry[]): NoiseResult {
   const files = entries.filter(e => e.isFile);
 

@@ -2,6 +2,9 @@ import { readFile } from 'node:fs/promises';
 import { getSourceFiles, type WalkEntry } from '../core/fs.js';
 import type { ImportsResult } from '../types.js';
 
+// Language-specific import patterns used for generic detection fallback.
+// The main countImports function uses language-aware logic per extension,
+// but these patterns serve as a reference for supported languages.
 const IMPORT_PATTERNS = [
   /^\s*import\s/m,                        // JS/TS import
   /^\s*from\s+['"].*['"]\s+import/m,      // Python from...import
@@ -36,6 +39,9 @@ function countImports(content: string, ext: string): number {
   return count;
 }
 
+// Analyzes import patterns and dependency counts.
+// Samples up to 200 files for speed. Also builds a basic dependency graph
+// for JS/TS files to detect potential circular dependencies.
 export async function analyzeImports(entries: WalkEntry[]): Promise<ImportsResult> {
   const sourceFiles = getSourceFiles(entries);
 

@@ -37,8 +37,8 @@ src/
 │   ├── isolation.ts            # Worktree vs tmpdir-copy strategy for empirical testing
 │   └── history.ts              # Score history tracking (.llm-sense/history.json)
 ├── analyzers/                  # Phase 1: each exports a pure function
-│   ├── file-sizes.ts           # Line count distribution, god-file detection
-│   ├── directory-structure.ts  # Depth, breadth, files per dir
+│   ├── fileSizes.ts            # Line count distribution, god-file detection
+│   ├── directoryStructure.ts   # Depth, breadth, files per dir
 │   ├── naming.ts               # Convention detection + consistency scoring
 │   ├── documentation.ts        # CLAUDE.md deep content scoring (8 sections), vibe coder files
 │   ├── imports.ts              # Import counts, external deps
@@ -46,13 +46,14 @@ src/
 │   └── noise.ts                # Generated files, binaries, lockfiles
 ├── phases/
 │   ├── runner.ts               # Orchestrates all phases sequentially
-│   ├── static-analysis.ts      # Phase 1: runs all 7 analyzers
-│   ├── llm-understanding.ts    # Phase 2: Claude CLI → CodebaseUnderstanding
-│   ├── task-generation.ts      # Phase 3: Claude CLI → SyntheticTask[]
-│   ├── empirical-testing.ts    # Phase 4: run tasks in worktrees, collect metrics
+│   ├── staticAnalysis.ts       # Phase 1: runs all 7 analyzers
+│   ├── llmUnderstanding.ts     # Phase 2: Claude CLI → CodebaseUnderstanding
+│   ├── taskGeneration.ts       # Phase 3: Claude CLI → SyntheticTask[]
+│   ├── empiricalTesting.ts     # Phase 4: run tasks in worktrees, collect metrics
 │   └── scoring.ts              # Phase 5: weighted scoring formulas
 └── report/
-    └── generator.ts            # Phase 6: Markdown report + ExecutableRecommendation builder
+    ├── generator.ts            # Phase 6: Markdown report formatting + rendering
+    └── recommendations.ts      # Executable recommendation builder + CLAUDE.md draft generator
 ```
 
 ## Common Patterns
@@ -60,7 +61,7 @@ src/
 **Adding a new static analyzer:**
 1. Create `src/analyzers/my-analyzer.ts` exporting a function that takes `WalkEntry[]` and returns a typed result
 2. Add the result type to `src/types.ts` and include it in `StaticAnalysisResult`
-3. Call it from `src/phases/static-analysis.ts`
+3. Call it from `src/phases/staticAnalysis.ts`
 4. Add a scoring function in `src/phases/scoring.ts`
 5. The report generator picks up category scores automatically
 

@@ -22,11 +22,14 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
+// Scores CLAUDE.md content quality by checking for 8 essential sections.
+// Each section is scored 0-1 based on: heading presence (0.5 base) + keyword depth in body.
+// A section can be "found" even without a heading if enough keywords appear in the body,
+// but scores lower (capped at 0.5) to encourage explicit section structure.
 function scoreClaudeMdContent(content: string): ClaudeMdContentScore {
   const lower = content.toLowerCase();
   const lines = content.split('\n');
 
-  // Extract headings for section detection
   const headings = lines
     .filter(l => l.startsWith('#'))
     .map(l => l.toLowerCase().replace(/^#+\s*/, ''));
@@ -35,21 +38,21 @@ function scoreClaudeMdContent(content: string): ClaudeMdContentScore {
   const missingSections: string[] = [];
 
   for (const [key, config] of Object.entries(CLAUDE_MD_SECTIONS)) {
-    // Check if any heading matches the section keywords
     const headingMatch = headings.some(h =>
       config.keywords.some(kw => h.includes(kw)),
     );
 
-    // Check if body text contains multiple keywords (indicates deeper coverage)
+    // Body depth: what fraction of section keywords appear anywhere in the file?
+    // Threshold is 40% of keywords to count as "mentioned" without a heading.
     const bodyMatches = config.keywords.filter(kw => lower.includes(kw)).length;
     const bodyScore = Math.min(bodyMatches / Math.max(config.keywords.length * 0.4, 1), 1);
 
     if (headingMatch) {
-      // Has a dedicated section heading — score based on content depth
+      // Dedicated heading found — 0.5 base + up to 0.5 from content depth
       const score = Math.min(0.5 + bodyScore * 0.5, 1);
       sections[key] = { found: true, score };
     } else if (bodyScore > 0.3) {
-      // Content mentions the topic but no dedicated heading
+      // Topic mentioned in body without heading — capped at half score
       sections[key] = { found: true, score: bodyScore * 0.5 };
     } else {
       sections[key] = { found: false, score: 0 };
@@ -99,7 +102,8 @@ export async function analyzeDocumentation(
   const vibeCoderContext = await detectVibeCoderFiles(rootPath);
   vibeCoderContext.subdirectoryClaudeMdPaths = subdirectoryClaudeMdPaths;
 
-  // Sample comment ratio from source files
+  // Estimate inline comment ratio by sampling up to 50 source files.
+  // We sample rather than scanning all files to keep Phase 1 fast (~300ms target).
   const sourceFiles = getSourceFiles(entries);
   let totalLines = 0;
   let commentLines = 0;

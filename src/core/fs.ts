@@ -12,6 +12,9 @@ export interface WalkEntry {
   bytes: number;
 }
 
+// Recursively walks a directory tree, collecting metadata for every file and directory.
+// Skips dotfiles/dirs by design (to avoid .git/, .next/, etc.) — vibe coder files like
+// .claude/ are detected separately by detectVibeCoderFiles() using direct fs.access().
 export async function walkDir(
   rootPath: string,
   opts: { maxDepth?: number } = {},
@@ -31,6 +34,7 @@ export async function walkDir(
 
     for (const item of items) {
       if (IGNORED_DIRS.has(item.name)) continue;
+      // Skip all dotfiles except .env.example (useful for setup documentation)
       if (item.name.startsWith('.') && item.name !== '.env.example') continue;
 
       const fullPath = join(dirPath, item.name);
@@ -88,6 +92,8 @@ export async function countLines(filePath: string): Promise<number> {
   }
 }
 
+// Reads a file with a byte cap to prevent OOM on large generated files (e.g., 50MB lockfiles).
+// Returns empty string on any error — callers don't need to handle missing/inaccessible files.
 export async function readFileSafe(filePath: string, maxBytes: number = 50_000): Promise<string> {
   try {
     const s = await stat(filePath);
@@ -105,6 +111,8 @@ export async function readFileSafe(filePath: string, maxBytes: number = 50_000):
   }
 }
 
+// Builds a text tree view of the directory structure for inclusion in Claude prompts.
+// Capped at maxEntries/maxDepth to keep prompts within reasonable token limits.
 export function buildTree(entries: WalkEntry[], maxEntries: number = 500, maxDepth: number = 3): string {
   const lines: string[] = [];
   let count = 0;
@@ -135,6 +143,8 @@ export function getDirs(entries: WalkEntry[]): WalkEntry[] {
   return entries.filter(e => e.isDir);
 }
 
+// Detects AI coding tool configuration files (.claude/, .cursorrules, etc.).
+// Uses direct fs.access() rather than walkDir because walkDir skips dotfiles.
 export async function detectVibeCoderFiles(rootPath: string): Promise<import('../types.js').VibeCoderContextFiles> {
   const { VIBE_CODER_FILES } = await import('../constants.js');
 

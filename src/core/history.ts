@@ -3,6 +3,9 @@ import { join } from 'node:path';
 import type { HistoryEntry } from '../types.js';
 import chalk from 'chalk';
 
+// History is stored inside the target codebase as .llm-sense/history.json.
+// This way each project keeps its own score timeline, and it can be committed to git
+// for team visibility. The directory is created on first run if it doesn't exist.
 const HISTORY_DIR = '.llm-sense';
 const HISTORY_FILE = 'history.json';
 
