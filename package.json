@@ -1,6 +1,6 @@
 {
   "name": "llm-sense",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Analyze how LLM-friendly a codebase is — static analysis + empirical testing with Claude Code",
   "main": "dist/index.js",
   "bin": {
@@ -22,8 +22,16 @@
     "ai-friendly",
     "developer-tools"
   ],
-  "author": "",
+  "author": "gididaf",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gididaf/llm-sense.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gididaf/llm-sense/issues"
+  },
+  "homepage": "https://github.com/gididaf/llm-sense#readme",
   "type": "module",
   "engines": {
     "node": ">=18"
