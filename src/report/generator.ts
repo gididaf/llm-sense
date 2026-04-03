@@ -145,7 +145,11 @@ function formatRecommendation(rec: ExecutableRecommendation, index: number): str
   const lines: string[] = [];
 
   lines.push(`### Task ${index}: ${rec.title}`);
-  lines.push(`**Priority ${rec.priority}** | **Category:** ${rec.category} | **Estimated impact:** +${rec.estimatedScoreImpact} points`);
+  let meta = `**Priority ${rec.priority}** | **Category:** ${rec.category} | **Estimated impact:** +${rec.estimatedScoreImpact} points | **Effort:** ${rec.estimatedEffort}`;
+  if (rec.dependsOn && rec.dependsOn.length > 0) {
+    meta += ` | **Depends on:** ${rec.dependsOn.join(', ')}`;
+  }
+  lines.push(meta);
   lines.push('');
 
   lines.push('#### Current State');

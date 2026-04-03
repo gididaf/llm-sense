@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.tgz
 .DS_Store
+llm-sense-report.md
+llm-sense-output.json
+.llm-sense/

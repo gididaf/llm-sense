@@ -6,6 +6,7 @@ import { analyzeDocumentation } from '../analyzers/documentation.js';
 import { analyzeImports } from '../analyzers/imports.js';
 import { analyzeModularity } from '../analyzers/modularity.js';
 import { analyzeNoise } from '../analyzers/noise.js';
+import { analyzeDevInfra } from '../analyzers/devInfra.js';
 import type { StaticAnalysisResult } from '../types.js';
 
 export async function runStaticAnalysis(
@@ -37,7 +38,10 @@ export async function runStaticAnalysis(
   const modularity = analyzeModularity(entries);
 
   if (verbose) console.log('  Analyzing noise...');
-  const noise = analyzeNoise(entries);
+  const noise = await analyzeNoise(entries);
+
+  if (verbose) console.log('  Analyzing developer infrastructure...');
+  const devInfra = await analyzeDevInfra(targetPath, entries);
 
   return {
     result: {
@@ -48,6 +52,7 @@ export async function runStaticAnalysis(
       imports,
       modularity,
       noise,
+      devInfra,
     },
     entries,
   };

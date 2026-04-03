@@ -14,6 +14,18 @@ export interface CliOptions {
   verbose: boolean;
   history: boolean;
   concurrency?: number;
+  format: 'markdown' | 'json' | 'summary';
+  minScore?: number;
+  badge?: string;
+  fix: boolean;
+  fixCount: number;
+  fixId?: string;
+  dryRun: boolean;
+  fixContinue: boolean;
+  yes: boolean;
+  plan: boolean;
+  compare?: string;
+  interactive: boolean;
 }
 
 // ─── Phase 1: Static Analysis ─────────────────────────────
@@ -22,6 +34,7 @@ export interface FileInfo {
   path: string;
   lines: number;
   bytes: number;
+  classification?: 'code' | 'data' | 'vendored';
 }
 
 export interface FileSizeDistribution {
@@ -33,6 +46,7 @@ export interface FileSizeDistribution {
   p99Lines: number;
   filesOver500Lines: number;
   filesOver1000Lines: number;
+  codeFilesOver1000Lines: number; // excludes data/vendored files
   largestFiles: FileInfo[];
 }
 
@@ -78,6 +92,7 @@ export interface DocumentationResult {
   totalSourceFiles: number;
   claudeMdContent: ClaudeMdContentScore | null;
   vibeCoderContext: VibeCoderContextFiles;
+  aiConfigScores: AiConfigScore[];
 }
 
 export interface ImportsResult {
@@ -85,6 +100,11 @@ export interface ImportsResult {
   maxImportsInFile: { path: string; count: number };
   circularDeps: string[][];
   externalDependencyCount: number;
+  avgFanOut: number;
+  avgFanIn: number;
+  hubFiles: { path: string; fanIn: number }[];
+  orphanFiles: string[];
+  maxChainDepth: number;
 }
 
 export interface ModularityResult {
@@ -99,9 +119,27 @@ export interface NoiseResult {
   generatedFileCount: number;
   lockfileBytes: number;
   binaryFileCount: number;
+  vendoredFileCount: number;
   sourceToNoiseRatio: number;
   totalFiles: number;
   sourceFiles: number;
+}
+
+export interface DevInfraResult {
+  hasCi: boolean;
+  hasTestCommand: boolean;
+  hasLinterConfig: boolean;
+  hasPreCommitHooks: boolean;
+  hasTypeChecking: boolean;
+  ciFiles: string[];
+  score: number;
+}
+
+export interface AiConfigScore {
+  file: string;
+  exists: boolean;
+  contentScore: number;
+  lines: number;
 }
 
 export interface StaticAnalysisResult {
@@ -112,6 +150,7 @@ export interface StaticAnalysisResult {
   imports: ImportsResult;
   modularity: ModularityResult;
   noise: NoiseResult;
+  devInfra: DevInfraResult;
 }
 
 // ─── Phase 2: LLM Understanding ──────────────────────────
@@ -209,6 +248,7 @@ export interface ExecutableRecommendation {
   title: string;
   priority: 1 | 2 | 3;
   estimatedScoreImpact: number;
+  estimatedEffort: '5min' | '30min' | '2hr' | 'half-day';
   category: string;
   currentState: string;
   desiredEndState: string;
@@ -217,6 +257,7 @@ export interface ExecutableRecommendation {
   acceptanceCriteria: string[];
   context: string;
   draftContent?: string;
+  dependsOn?: string[];
 }
 
 export interface HistoryEntry {

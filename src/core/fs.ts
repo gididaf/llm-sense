@@ -83,6 +83,62 @@ export function isBinaryFile(ext: string): boolean {
   return BINARY_EXTENSIONS.has(ext);
 }
 
+// Detects vendored/third-party files by checking for copyright headers and version banners.
+// Only reads the first 1KB — vendored files almost always have a banner in the first few lines.
+const VENDORED_PATTERNS = [
+  /\(c\)\s*\d{4}/i,                         // (c) 2019
+  /copyright\s+/i,                           // Copyright ...
+  /released under the \w+ license/i,         // Released under the MIT License
+  /licensed under the \w+ license/i,         // Licensed under the Apache License
+  /\/\*!?\s*[\w.-]+\s+v\d+\.\d+/,           // /*! Library v1.2.3 or /* Library v1.2.3
+  /@license\b/i,                             // @license
+  /@preserve\b/i,                            // @preserve
+  /\/\/ @generated\b/,                       // // @generated
+  /auto-generated\b/i,                       // auto-generated
+];
+
+export async function isVendoredFile(filePath: string): Promise<boolean> {
+  try {
+    const header = await readFileSafe(filePath, 1024);
+    if (!header) return false;
+    // Check first few lines for vendored markers
+    const firstLines = header.split('\n').slice(0, 10).join('\n');
+    return VENDORED_PATTERNS.some(p => p.test(firstLines));
+  } catch {
+    return false;
+  }
+}
+
+// Detects files that are primarily static data (large object/array literals, seed data, etc.)
+// rather than logic. Reads a sample and checks the ratio of data-like lines to logic lines.
+const DATA_KEYWORDS = /^\s*(["'`{}\[\],]|\/\/|\/\*|\*|[A-Za-z\u0590-\u05FF\u0600-\u06FF"'].*[:=]\s*[\[{"'`])/;
+const LOGIC_KEYWORDS = /\b(function|class|if|else|for|while|switch|case|return|import|export|const\s+\w+\s*=\s*(\(|async|function)|let\s+\w+\s*=|await|try|catch|throw|new\s+\w|=>)\b/;
+
+export async function isDataFile(filePath: string, totalLines: number): Promise<boolean> {
+  // Only classify files over 500 lines — smaller files aren't worth the I/O
+  if (totalLines < 500) return false;
+  try {
+    // Sample: read first 8KB and last 8KB to catch files that start with imports but are mostly data
+    const content = await readFileSafe(filePath, 16_000);
+    if (!content) return false;
+    const lines = content.split('\n');
+    let dataLines = 0;
+    let logicLines = 0;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (LOGIC_KEYWORDS.test(trimmed)) logicLines++;
+      else if (DATA_KEYWORDS.test(trimmed)) dataLines++;
+    }
+    const total = dataLines + logicLines;
+    if (total < 20) return false;
+    // If >80% of non-empty lines are data-like, it's a data file
+    return dataLines / total > 0.80;
+  } catch {
+    return false;
+  }
+}
+
 export async function countLines(filePath: string): Promise<number> {
   try {
     const content = await readFile(filePath, 'utf-8');

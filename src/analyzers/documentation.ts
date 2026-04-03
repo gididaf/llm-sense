@@ -2,7 +2,7 @@ import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { getSourceFiles, stratifiedSample, detectVibeCoderFiles, type WalkEntry } from '../core/fs.js';
 import { CLAUDE_MD_SECTIONS } from '../constants.js';
-import type { DocumentationResult, ClaudeMdContentScore } from '../types.js';
+import type { DocumentationResult, ClaudeMdContentScore, AiConfigScore } from '../types.js';
 
 async function fileLines(path: string): Promise<number> {
   try {
@@ -72,6 +72,77 @@ function scoreClaudeMdContent(content: string): ClaudeMdContentScore {
   };
 }
 
+// Generic AI config file scoring. Checks for project context, coding conventions,
+// file structure hints, and architecture guidance — the same concepts as CLAUDE.md
+// but adapted for other AI tool config formats.
+const AI_CONFIG_KEYWORDS = [
+  'architecture', 'structure', 'pattern', 'convention', 'module',
+  'test', 'build', 'deploy', 'stack', 'framework', 'database',
+  'important', 'avoid', 'prefer', 'always', 'never', 'rule',
+  'file', 'directory', 'component', 'function', 'class', 'type',
+];
+
+function scoreAiConfigContent(content: string): number {
+  if (!content.trim()) return 0;
+  const lower = content.toLowerCase();
+  const lines = content.split('\n').length;
+
+  // Base score from length (more content = more useful)
+  let score = Math.min(lines / 5, 30); // up to 30 pts for 150+ lines
+
+  // Keyword depth: what fraction of AI config keywords appear?
+  const matches = AI_CONFIG_KEYWORDS.filter(kw => lower.includes(kw)).length;
+  score += (matches / AI_CONFIG_KEYWORDS.length) * 50; // up to 50 pts
+
+  // Has code blocks (suggests examples)?
+  if (content.includes('```')) score += 10;
+
+  // Has headings (suggests structure)?
+  if (/^#+\s/m.test(content)) score += 10;
+
+  return Math.min(Math.round(score), 100);
+}
+
+// Files to score as AI config. Each gets existence + content scoring.
+const AI_CONFIG_FILES = [
+  { path: '.cursorrules', name: '.cursorrules' },
+  { path: '.github/copilot-instructions.md', name: 'copilot-instructions.md' },
+  { path: 'AGENTS.md', name: 'AGENTS.md' },
+  { path: '.clinerules', name: '.clinerules' },
+  { path: '.claude/settings.json', name: '.claude/settings.json' },
+];
+
+async function scoreAiConfigs(rootPath: string): Promise<AiConfigScore[]> {
+  const results: AiConfigScore[] = [];
+
+  for (const config of AI_CONFIG_FILES) {
+    const fullPath = join(rootPath, config.path);
+    let exists = false;
+    let contentScore = 0;
+    let lines = 0;
+
+    try {
+      await access(fullPath);
+      exists = true;
+      const content = await readFile(fullPath, 'utf-8');
+      lines = content.split('\n').length;
+
+      if (config.path.endsWith('.json')) {
+        // JSON config — check for meaningful keys
+        const parsed = JSON.parse(content);
+        const keys = Object.keys(parsed);
+        contentScore = Math.min(keys.length * 15, 100);
+      } else {
+        contentScore = scoreAiConfigContent(content);
+      }
+    } catch {}
+
+    results.push({ file: config.name, exists, contentScore, lines });
+  }
+
+  return results;
+}
+
 export async function analyzeDocumentation(
   rootPath: string,
   entries: WalkEntry[],
@@ -136,6 +207,9 @@ export async function analyzeDocumentation(
     ? Math.round((commentLines / totalLines) * 1000) / 1000
     : 0;
 
+  // Score AI config files beyond CLAUDE.md
+  const aiConfigScores = await scoreAiConfigs(rootPath);
+
   return {
     hasReadme,
     hasClaudeMd,
@@ -145,5 +219,6 @@ export async function analyzeDocumentation(
     totalSourceFiles: sourceFiles.length,
     claudeMdContent,
     vibeCoderContext,
+    aiConfigScores,
   };
 }

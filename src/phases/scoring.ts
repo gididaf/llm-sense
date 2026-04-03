@@ -13,8 +13,9 @@ export function scoreFileSizes(s: StaticAnalysisResult['fileSizes']): CategorySc
   const medianScore = clamp(100 - ((s.medianLines - 50) / 4));
   // P90 measures the long tail: 100 lines = perfect, 1000+ = worst
   const p90Score = clamp(100 - ((s.p90Lines - 100) / 9));
-  // Each 1000+ line file costs 5 pts (capped at 30) — these are "god files"
-  const giantPenalty = Math.min(s.filesOver1000Lines * 5, 30);
+  // Each 1000+ line CODE file costs 5 pts (capped at 30) — these are "god files"
+  // Data files and vendored files are excluded since they need context exclusion, not splitting
+  const giantPenalty = Math.min(s.codeFilesOver1000Lines * 5, 30);
   // 40% median + 40% P90 + 20% baseline minus giant file penalties
   const score = clamp(medianScore * 0.4 + p90Score * 0.4 + 20 - giantPenalty);
 
@@ -23,8 +24,9 @@ export function scoreFileSizes(s: StaticAnalysisResult['fileSizes']): CategorySc
 
   findings.push(`Median file: ${s.medianLines} lines, P90: ${s.p90Lines} lines`);
   if (s.filesOver1000Lines > 0) {
-    findings.push(`${s.filesOver1000Lines} files over 1,000 lines`);
-    for (const f of s.largestFiles.slice(0, 3)) {
+    const excluded = s.filesOver1000Lines - s.codeFilesOver1000Lines;
+    findings.push(`${s.filesOver1000Lines} files over 1,000 lines${excluded > 0 ? ` (${excluded} data/vendored excluded from scoring)` : ''}`);
+    for (const f of s.largestFiles.filter(f => f.classification === 'code').slice(0, 3)) {
       recommendations.push(`Split \`${f.path}\` (${f.lines.toLocaleString()} lines) into smaller modules`);
     }
   }
@@ -78,11 +80,11 @@ export function scoreStructure(s: StaticAnalysisResult['directoryStructure'], to
 export function scoreNaming(s: StaticAnalysisResult['naming']): CategoryScore {
   const score = s.conventionScore;
 
-  const findings = [`Dominant convention: ${s.dominantConvention}, ${score}% consistency`];
+  const findings = [`${score}% per-directory naming consistency`];
   const recommendations: string[] = [];
 
   if (score < 90 && s.inconsistencies.length > 0) {
-    recommendations.push(`Standardize file naming to ${s.dominantConvention} convention`);
+    recommendations.push(`Fix ${s.inconsistencies.length} naming inconsistencies`);
     for (const inc of s.inconsistencies.slice(0, 5)) {
       recommendations.push(`Rename: ${inc}`);
     }
@@ -150,7 +152,14 @@ export function scoreDocumentation(s: StaticAnalysisResult['documentation']): Ca
     score += Math.min(vc.detectedTools.length * 3, 10);
   }
   if (vc.hasClaudeDir) score += 2;
-  score = Math.min(score, score); // cap context points contribution
+
+  // AI config file bonus: up to 5 pts for quality config files beyond CLAUDE.md
+  const aiConfigs = s.aiConfigScores.filter(c => c.exists);
+  if (aiConfigs.length > 0) {
+    const avgQuality = aiConfigs.reduce((sum, c) => sum + c.contentScore, 0) / aiConfigs.length;
+    score += Math.min(Math.round(avgQuality / 20), 5);
+    findings.push(`AI config files: ${aiConfigs.map(c => `${c.file} (${c.contentScore}/100)`).join(', ')}`);
+  }
 
   if (vc.subdirectoryClaudeMdPaths.length > 0) {
     findings.push(`Subdirectory CLAUDE.md files: ${vc.subdirectoryClaudeMdPaths.join(', ')}`);
@@ -173,19 +182,30 @@ export function scoreDocumentation(s: StaticAnalysisResult['documentation']): Ca
   return { name: 'Documentation', score, weight: 0, findings, recommendations };
 }
 
-export function scoreModularity(s: StaticAnalysisResult['modularity']): CategoryScore {
+export function scoreModularity(s: StaticAnalysisResult['modularity'], doc: StaticAnalysisResult['documentation']): CategoryScore {
   // Measures how well code is organized into cohesive modules.
   // Single-file directories suggest over-splitting; many-file directories suggest under-splitting.
+  // EXCEPTION: modular architectures intentionally use single-file dirs for module structure.
   let score = 70; // baseline — most organized projects start here
 
   if (s.avgFilesPerDirectory >= 3 && s.avgFilesPerDirectory <= 10) score += 15;
   else if (s.avgFilesPerDirectory > 10) score -= Math.min((s.avgFilesPerDirectory - 10) * 2, 20);
 
-  const singleFileDirRatio = s.totalDirectories > 0 ? s.singleFileDirectories / s.totalDirectories : 0;
-  if (singleFileDirRatio > 0.4) score -= 10;
-  if (singleFileDirRatio < 0.2) score += 10;
+  // Check if CLAUDE.md documents a modular architecture (single-file dirs are intentional)
+  const claudeMdRaw = doc.claudeMdContent?.rawContent ?? '';
+  const hasModularArchitecture = /\b(modular\s+monolith|self-contained\s+module|each\s+module\s+(is|has)|module.based|feature.based\s+(structure|architecture|organization))\b/i.test(claudeMdRaw);
+  const hasStrongBarrelPattern = s.barrelExportCount > 20;
 
-  if (s.barrelExportCount > 0) score += 5;
+  const singleFileDirRatio = s.totalDirectories > 0 ? s.singleFileDirectories / s.totalDirectories : 0;
+
+  if (hasModularArchitecture || hasStrongBarrelPattern) {
+    // Modular architecture: don't penalize single-file dirs, give bonus for barrel exports
+    if (s.barrelExportCount > 0) score += 10;
+  } else {
+    if (singleFileDirRatio > 0.4) score -= 10;
+    if (singleFileDirRatio < 0.2) score += 10;
+    if (s.barrelExportCount > 0) score += 5;
+  }
 
   score = clamp(score);
 
@@ -195,10 +215,14 @@ export function scoreModularity(s: StaticAnalysisResult['modularity']): Category
   ];
   const recommendations: string[] = [];
 
+  if (hasModularArchitecture) {
+    findings.push('Modular architecture detected — single-file directories are intentional');
+  }
+
   if (s.maxFilesInDirectory.count > 20) {
     recommendations.push(`\`${s.maxFilesInDirectory.path}\` has ${s.maxFilesInDirectory.count} files — consider splitting into sub-modules`);
   }
-  if (singleFileDirRatio > 0.3) {
+  if (!hasModularArchitecture && !hasStrongBarrelPattern && singleFileDirRatio > 0.3) {
     recommendations.push('Many single-file directories — consider consolidating small modules');
   }
 
@@ -229,7 +253,7 @@ export function scoreContextEfficiency(s: StaticAnalysisResult['noise']): Catego
 
   const findings = [
     `${s.sourceFiles} source files / ${s.totalFiles} total (${(s.sourceToNoiseRatio * 100).toFixed(0)}%)`,
-    `${s.generatedFileCount} generated files, ${s.binaryFileCount} binary files`,
+    `${s.generatedFileCount} generated files, ${s.binaryFileCount} binary files${s.vendoredFileCount > 0 ? `, ${s.vendoredFileCount} vendored files` : ''}`,
   ];
   const recommendations: string[] = [];
 
@@ -316,6 +340,65 @@ export function scoreTokenEfficiency(taskResults: TaskExecutionResult[], totalSo
   return { name: 'Token Efficiency', score, weight: 0, findings, recommendations };
 }
 
+export function scoreCoupling(s: StaticAnalysisResult['imports']): CategoryScore {
+  // Measures how tightly coupled the codebase is based on the dependency graph.
+  // Low coupling = easier for LLMs to work on isolated parts.
+  let score = 70; // baseline
+
+  // Fan-out: avg imports per file. 3-8 is healthy; >15 suggests files do too much
+  if (s.avgFanOut <= 8) score += 10;
+  else if (s.avgFanOut > 15) score -= Math.min((s.avgFanOut - 15) * 2, 20);
+
+  // Hub files: files with fan-in > 10 are risky — changes ripple widely
+  if (s.hubFiles.length === 0) score += 10;
+  else score -= Math.min(s.hubFiles.length * 3, 15);
+
+  // Max chain depth: deep chains (>8) mean LLMs must trace many files
+  if (s.maxChainDepth <= 5) score += 10;
+  else if (s.maxChainDepth > 8) score -= Math.min((s.maxChainDepth - 8) * 3, 15);
+
+  score = clamp(score);
+
+  const findings: string[] = [
+    `Avg fan-out: ${s.avgFanOut} imports/file, avg fan-in: ${s.avgFanIn}`,
+    `Max dependency chain depth: ${s.maxChainDepth}`,
+  ];
+  const recommendations: string[] = [];
+
+  if (s.hubFiles.length > 0) {
+    findings.push(`Hub files (fan-in >10): ${s.hubFiles.map(h => h.path).slice(0, 3).join(', ')}`);
+    recommendations.push('Consider breaking hub files into smaller modules to reduce coupling');
+  }
+  if (s.orphanFiles.length > 5) {
+    findings.push(`${s.orphanFiles.length} orphan files (no local imports or importers)`);
+  }
+
+  return { name: 'Coupling', score, weight: 0, findings, recommendations };
+}
+
+export function scoreDevInfra(s: StaticAnalysisResult['devInfra']): CategoryScore {
+  // Direct pass-through of the analyzer's score (0-20, scaled to 0-100)
+  const score = clamp(s.score * 5);
+
+  const findings: string[] = [];
+  const recommendations: string[] = [];
+
+  if (s.hasCi) findings.push(`CI: ${s.ciFiles.join(', ')}`);
+  else recommendations.push('Add a CI configuration (GitHub Actions, GitLab CI, etc.)');
+
+  if (s.hasTestCommand) findings.push('Test command configured');
+  else recommendations.push('Add a test command (scripts.test in package.json, Makefile test target, etc.)');
+
+  if (s.hasLinterConfig) findings.push('Linter configured');
+  else recommendations.push('Add a linter configuration (.eslintrc, biome.json, etc.)');
+
+  if (s.hasPreCommitHooks) findings.push('Pre-commit hooks configured');
+  if (s.hasTypeChecking) findings.push('Type checking configured');
+  else recommendations.push('Add type checking (tsconfig.json strict mode, mypy, pyright)');
+
+  return { name: 'Developer Infrastructure', score, weight: 0, findings, recommendations };
+}
+
 export function computeScores(
   staticResult: StaticAnalysisResult,
   taskResults: TaskExecutionResult[],
@@ -327,9 +410,11 @@ export function computeScores(
     { ...scoreDocumentation(staticResult.documentation), weight: weights.documentation },
     { ...scoreFileSizes(staticResult.fileSizes), weight: weights.fileSizes },
     { ...scoreStructure(staticResult.directoryStructure, staticResult.fileSizes.totalFiles), weight: weights.structure },
-    { ...scoreModularity(staticResult.modularity), weight: weights.modularity },
+    { ...scoreModularity(staticResult.modularity, staticResult.documentation), weight: weights.modularity },
     { ...scoreContextEfficiency(staticResult.noise), weight: weights.contextEfficiency },
     { ...scoreNaming(staticResult.naming), weight: weights.naming },
+    { ...scoreCoupling(staticResult.imports), weight: weights.coupling },
+    { ...scoreDevInfra(staticResult.devInfra), weight: weights.devInfra },
   ];
 
   if (!skipEmpirical) {
