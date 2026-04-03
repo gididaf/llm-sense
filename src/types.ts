@@ -13,6 +13,7 @@ export interface CliOptions {
   model?: string;
   verbose: boolean;
   history: boolean;
+  concurrency?: number;
 }
 
 // ─── Phase 1: Static Analysis ─────────────────────────────
@@ -186,6 +187,9 @@ export interface TaskExecutionResult {
   };
   filesRead: string[];
   filesModified: string[];
+  fileOverlapScore: number;
+  unexpectedFilesModified: string[];
+  correctnessScore: number;
   stopReason: string;
   errors: string[];
 }

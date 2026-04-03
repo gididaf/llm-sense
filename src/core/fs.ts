@@ -143,6 +143,86 @@ export function getDirs(entries: WalkEntry[]): WalkEntry[] {
   return entries.filter(e => e.isDir);
 }
 
+// Groups source files by top-level directory and samples proportionally from each group.
+// Ensures every directory area gets representation, avoiding the bias of simple .slice(0, N).
+// For repos with fewer files than maxSamples, returns all files unchanged.
+export function stratifiedSample(files: WalkEntry[], maxSamples: number): WalkEntry[] {
+  if (files.length <= maxSamples) return files;
+
+  // Group by top-level directory (first path segment)
+  const groups = new Map<string, WalkEntry[]>();
+  for (const file of files) {
+    const firstSlash = file.relativePath.indexOf('/');
+    const group = firstSlash === -1 ? '.' : file.relativePath.slice(0, firstSlash);
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group)!.push(file);
+  }
+
+  // Allocate slots proportionally, with at least 1 per group
+  const totalFiles = files.length;
+  const allocations = new Map<string, number>();
+  let totalAllocated = 0;
+
+  for (const [group, groupFiles] of groups) {
+    const slots = Math.max(1, Math.round(groupFiles.length / totalFiles * maxSamples));
+    allocations.set(group, slots);
+    totalAllocated += slots;
+  }
+
+  // Trim from largest groups if we over-allocated due to min-1 guarantee
+  if (totalAllocated > maxSamples) {
+    const sorted = [...allocations.entries()].sort((a, b) => b[1] - a[1]);
+    let excess = totalAllocated - maxSamples;
+    for (const [group, slots] of sorted) {
+      if (excess <= 0) break;
+      const trim = Math.min(excess, slots - 1);
+      allocations.set(group, slots - trim);
+      excess -= trim;
+    }
+  }
+
+  // Sample evenly within each group
+  const result: WalkEntry[] = [];
+  for (const [group, groupFiles] of groups) {
+    const slots = allocations.get(group)!;
+    if (slots >= groupFiles.length) {
+      result.push(...groupFiles);
+    } else {
+      const step = Math.max(1, Math.floor(groupFiles.length / slots));
+      let picked = 0;
+      for (let i = 0; i < groupFiles.length && picked < slots; i += step) {
+        result.push(groupFiles[i]);
+        picked++;
+      }
+    }
+  }
+
+  return result.slice(0, maxSamples);
+}
+
+// Builds a directory overview showing parent directories with file counts.
+// Gives Claude full breadth visibility without listing every individual path.
+export function buildDirectorySummary(files: WalkEntry[]): string {
+  const groups = new Map<string, number>();
+  for (const file of files) {
+    const lastSlash = file.relativePath.lastIndexOf('/');
+    const dir = lastSlash === -1 ? '(root)' : file.relativePath.slice(0, lastSlash);
+    groups.set(dir, (groups.get(dir) ?? 0) + 1);
+  }
+
+  // Sort by count descending, cap at 60 directories for prompt size
+  const sorted = [...groups.entries()].sort((a, b) => b[1] - a[1]);
+  const shown = sorted.slice(0, 60);
+  const lines = shown.map(([dir, count]) => `${dir}/ (${count} files)`);
+
+  if (sorted.length > 60) {
+    const remaining = sorted.slice(60).reduce((sum, [, c]) => sum + c, 0);
+    lines.push(`... and ${sorted.length - 60} more directories (${remaining} files)`);
+  }
+
+  return lines.join('\n');
+}
+
 // Detects AI coding tool configuration files (.claude/, .cursorrules, etc.).
 // Uses direct fs.access() rather than walkDir because walkDir skips dotfiles.
 export async function detectVibeCoderFiles(rootPath: string): Promise<import('../types.js').VibeCoderContextFiles> {

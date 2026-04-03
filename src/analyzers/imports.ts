@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { getSourceFiles, type WalkEntry } from '../core/fs.js';
+import { getSourceFiles, stratifiedSample, type WalkEntry } from '../core/fs.js';
 import type { ImportsResult } from '../types.js';
 
 // Language-specific import patterns used for generic detection fallback.
@@ -49,8 +49,8 @@ export async function analyzeImports(entries: WalkEntry[]): Promise<ImportsResul
   let maxImportsPath = '';
   let maxImportsCount = 0;
 
-  const sampleSize = Math.min(sourceFiles.length, 200);
-  const sampled = sourceFiles.slice(0, sampleSize);
+  const sampleSize = Math.min(sourceFiles.length, sourceFiles.length > 500 ? 400 : 200);
+  const sampled = stratifiedSample(sourceFiles, sampleSize);
 
   for (const file of sampled) {
     try {

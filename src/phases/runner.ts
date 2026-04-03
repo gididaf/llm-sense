@@ -98,7 +98,7 @@ export async function run(options: CliOptions): Promise<void> {
         const phase4 = await runEmpiricalTesting(
           options.path, allTasks,
           options.maxTurnsPerTask, options.maxBudgetPerTask,
-          options.verbose, options.model,
+          options.verbose, options.model, options.concurrency,
         );
         taskResults = phase4.results;
         totalCostUsd += phase4.totalCostUsd;

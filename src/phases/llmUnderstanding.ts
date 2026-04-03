@@ -13,8 +13,11 @@ export async function runLlmUnderstanding(
 ): Promise<{ data: CodebaseUnderstanding; costUsd: number; durationMs: number }> {
   if (verbose) console.log('  Building prompt for codebase understanding...');
 
-  // Build tree view
-  const tree = buildTree(entries, 500, 3);
+  // Scale tree view limits with repo size
+  const entryCount = entries.length;
+  const treeMaxEntries = entryCount > 1000 ? 1200 : entryCount > 200 ? 800 : 500;
+  const treeMaxDepth = entryCount > 200 ? 4 : 3;
+  const tree = buildTree(entries, treeMaxEntries, treeMaxDepth);
 
   // Read key documentation files
   const readme = await readFileSafe(join(targetPath, 'README.md'), 5000);

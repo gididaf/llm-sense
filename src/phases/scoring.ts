@@ -251,19 +251,21 @@ export function scoreTaskCompletion(taskResults: TaskExecutionResult[]): Categor
   const successCount = taskResults.filter(r => r.success).length;
   const successRate = successCount / taskResults.length;
 
+  // Average correctness across ALL tasks (failures count as 0.0)
+  const avgCorrectness = taskResults.reduce((sum, r) => sum + r.correctnessScore, 0) / taskResults.length;
+
   // Efficiency bonus rewards codebases where tasks complete in fewer turns.
-  // A codebase that lets Claude solve tasks in 5/30 turns is better than one
-  // that takes 29/30 turns, even if both "pass". Only kicks in above 50% success.
   const successful = taskResults.filter(r => r.success);
   const avgTurnRatio = successful.length > 0
     ? successful.reduce((sum, r) => sum + r.numTurns, 0) / (successful.length * 30)
     : 1;
   const efficiencyBonus = successRate > 0.5 ? (1 - avgTurnRatio) * 20 : 0;
 
-  const score = clamp(successRate * 80 + efficiencyBonus);
+  const score = clamp(successRate * 60 + avgCorrectness * 20 + efficiencyBonus);
 
   const findings = [
     `${successCount}/${taskResults.length} tasks completed successfully (${(successRate * 100).toFixed(0)}%)`,
+    `Average file correctness: ${(avgCorrectness * 100).toFixed(0)}% (expected files touched)`,
     `Avg turns: ${(taskResults.reduce((s, r) => s + r.numTurns, 0) / taskResults.length).toFixed(1)}`,
   ];
   const recommendations: string[] = [];
@@ -276,10 +278,14 @@ export function scoreTaskCompletion(taskResults: TaskExecutionResult[]): Categor
     }
   }
 
+  if (avgCorrectness < 0.5) {
+    recommendations.push('Low file correctness — add CLAUDE.md with a module map so the LLM can find the right files');
+  }
+
   return { name: 'Task Completion', score, weight: 0, findings, recommendations };
 }
 
-export function scoreTokenEfficiency(taskResults: TaskExecutionResult[]): CategoryScore {
+export function scoreTokenEfficiency(taskResults: TaskExecutionResult[], totalSourceFiles: number): CategoryScore {
   const successful = taskResults.filter(r => r.success);
   if (successful.length === 0) {
     return { name: 'Token Efficiency', score: 0, weight: 0, findings: ['No successful tasks to measure'], recommendations: [] };
@@ -288,18 +294,22 @@ export function scoreTokenEfficiency(taskResults: TaskExecutionResult[]): Catego
   const avgTokens = successful.reduce((sum, r) =>
     sum + r.tokenUsage.inputTokens + r.tokenUsage.outputTokens, 0) / successful.length;
 
-  // Linear scale from 10K tokens (perfect) to 500K+ (worst).
-  // Well-structured codebases let LLMs load less context per task.
-  const score = clamp(100 - ((avgTokens - 10000) / 5000));
+  // Log-scaled baseline: expected tokens for a well-structured repo of this size.
+  // Small repos (~20 files): ~40K tokens baseline
+  // Medium repos (~200 files): ~66K tokens baseline
+  // Large repos (~1000 files): ~85K tokens baseline
+  const baselineTokens = 5000 + 8000 * Math.log2(Math.max(totalSourceFiles, 2));
+  const ratio = avgTokens / baselineTokens;
+  const score = clamp(100 - (ratio - 1) * 25);
 
   const findings = [
-    `Avg tokens per successful task: ${Math.round(avgTokens).toLocaleString()}`,
+    `Avg tokens per successful task: ${Math.round(avgTokens).toLocaleString()} (baseline for ${totalSourceFiles}-file repo: ${Math.round(baselineTokens).toLocaleString()} — ${ratio.toFixed(1)}x)`,
     `Avg cost per task: $${(successful.reduce((s, r) => s + r.totalCostUsd, 0) / successful.length).toFixed(2)}`,
   ];
   const recommendations: string[] = [];
 
-  if (avgTokens > 50000) {
-    recommendations.push('High token usage per task — codebase structure may be causing excessive context loading');
+  if (ratio > 2) {
+    recommendations.push('Token usage significantly exceeds baseline — codebase structure may be causing excessive context loading');
     recommendations.push('Consider adding CLAUDE.md with clear module boundaries and common patterns');
   }
 
@@ -325,7 +335,7 @@ export function computeScores(
   if (!skipEmpirical) {
     categories.push(
       { ...scoreTaskCompletion(taskResults), weight: weights.taskCompletion },
-      { ...scoreTokenEfficiency(taskResults), weight: weights.tokenEfficiency },
+      { ...scoreTokenEfficiency(taskResults, staticResult.fileSizes.totalFiles), weight: weights.tokenEfficiency },
     );
   }
 

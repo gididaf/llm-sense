@@ -6,7 +6,7 @@ const program = new Command();
 program
   .name('llm-sense')
   .description('Analyze how LLM-friendly a codebase is')
-  .version('0.2.2')
+  .version('0.3.0')
   .option('--path <dir>', 'Path to the codebase to analyze', '.')
   .option('--bugs <n>', 'Number of synthetic bug tasks', '5')
   .option('--features <n>', 'Number of synthetic feature tasks', '5')
@@ -14,6 +14,7 @@ program
   .option('--max-budget-per-task <usd>', 'Max USD per empirical task', '1.00')
   .option('--max-turns-per-task <n>', 'Max turns per empirical task', '30')
   .option('--skip-empirical', 'Skip empirical testing (faster, cheaper, less accurate)')
+  .option('--concurrency <n>', 'Max parallel empirical tasks (default: auto)')
   .option('--model <model>', 'Override Claude model for all phases')
   .option('--verbose', 'Show detailed progress output')
   .option('--history', 'Show score history for the target codebase')
@@ -36,6 +37,7 @@ program
       maxBudgetPerTask: parseFloat(options.maxBudgetPerTask),
       maxTurnsPerTask: parseInt(options.maxTurnsPerTask, 10),
       skipEmpirical: options.skipEmpirical ?? false,
+      concurrency: options.concurrency ? parseInt(options.concurrency, 10) : undefined,
       model: options.model,
       verbose: options.verbose ?? false,
       history: options.history ?? false,

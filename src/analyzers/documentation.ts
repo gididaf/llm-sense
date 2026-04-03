@@ -1,6 +1,6 @@
 import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { getSourceFiles, detectVibeCoderFiles, type WalkEntry } from '../core/fs.js';
+import { getSourceFiles, stratifiedSample, detectVibeCoderFiles, type WalkEntry } from '../core/fs.js';
 import { CLAUDE_MD_SECTIONS } from '../constants.js';
 import type { DocumentationResult, ClaudeMdContentScore } from '../types.js';
 
@@ -107,8 +107,8 @@ export async function analyzeDocumentation(
   const sourceFiles = getSourceFiles(entries);
   let totalLines = 0;
   let commentLines = 0;
-  const sampleSize = Math.min(sourceFiles.length, 50);
-  const sampled = sourceFiles.slice(0, sampleSize);
+  const sampleSize = Math.min(sourceFiles.length, sourceFiles.length > 500 ? 100 : 50);
+  const sampled = stratifiedSample(sourceFiles, sampleSize);
 
   for (const file of sampled) {
     try {
