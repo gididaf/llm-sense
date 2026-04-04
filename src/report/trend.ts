@@ -64,6 +64,15 @@ export function formatTrendChart(history: HistoryEntry[]): string {
   }
   lines.push(labelLine);
 
+  // Show scoring version boundaries
+  const versions = history.map(h => h.scoringVersion ?? 'pre-0.9.0');
+  const versionChanges: string[] = [];
+  for (let i = 1; i < versions.length; i++) {
+    if (versions[i] !== versions[i - 1]) {
+      versionChanges.push(`  Note: scoring version changed from ${versions[i - 1]} to ${versions[i]} at run #${i + 1} — scores before/after may not be directly comparable`);
+    }
+  }
+
   // Summary stats
   lines.push('');
   const latest = scores[scores.length - 1];
@@ -71,6 +80,10 @@ export function formatTrendChart(history: HistoryEntry[]): string {
   const delta = latest - first;
   const deltaStr = delta >= 0 ? `+${delta}` : `${delta}`;
   lines.push(`  Current: ${latest}/100  |  Start: ${first}/100  |  Change: ${deltaStr}  |  Runs: ${scores.length}`);
+  if (versionChanges.length > 0) {
+    lines.push('');
+    lines.push(...versionChanges);
+  }
   lines.push('');
 
   return lines.join('\n');

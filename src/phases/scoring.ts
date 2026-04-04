@@ -161,6 +161,31 @@ export function scoreDocumentation(s: StaticAnalysisResult['documentation']): Ca
     findings.push(`AI config files: ${aiConfigs.map(c => `${c.file} (${c.contentScore}/100)`).join(', ')}`);
   }
 
+  // AI config coverage bonus: 0-8 pts based on how many AI tools have config files
+  score += s.aiConfigCoverage;
+  if (s.aiConfigCoverage > 0) {
+    findings.push(`AI config coverage: ${aiConfigs.length} tool(s) configured (+${s.aiConfigCoverage} pts)`);
+  }
+
+  // Config drift penalty: -2 pts per stale reference, capped at -20
+  if (s.configDrift.staleReferences.length > 0) {
+    const driftPenalty = Math.min(s.configDrift.staleReferences.length * 2, 20);
+    score -= driftPenalty;
+    findings.push(`Config drift: ${s.configDrift.staleReferences.length} stale reference(s) found (freshness: ${s.configDrift.freshnessScore}%)`);
+    recommendations.push(`Fix ${s.configDrift.staleReferences.length} stale config reference(s) — stale configs actively mislead LLMs`);
+  } else if (s.configDrift.totalReferences > 0) {
+    // 100% fresh configs: +5 bonus
+    score += 5;
+    findings.push(`Config freshness: 100% (${s.configDrift.totalReferences} references validated)`);
+  }
+
+  // AI config consistency penalty: -2 pts per cross-file contradiction
+  if (s.aiConfigConsistency < 100) {
+    const consistencyPenalty = Math.round((100 - s.aiConfigConsistency) / 2);
+    score -= Math.min(consistencyPenalty, 10);
+    findings.push(`AI config consistency: ${s.aiConfigConsistency}% — some config files may contradict each other`);
+  }
+
   if (vc.subdirectoryClaudeMdPaths.length > 0) {
     findings.push(`Subdirectory CLAUDE.md files: ${vc.subdirectoryClaudeMdPaths.join(', ')}`);
     score += Math.min(vc.subdirectoryClaudeMdPaths.length * 2, 5);
@@ -340,7 +365,11 @@ export function scoreTokenEfficiency(taskResults: TaskExecutionResult[], totalSo
   return { name: 'Token Efficiency', score, weight: 0, findings, recommendations };
 }
 
-export function scoreCoupling(s: StaticAnalysisResult['imports']): CategoryScore {
+export function scoreCoupling(
+  s: StaticAnalysisResult['imports'],
+  fragmentationRatio: number,
+  duplicates: StaticAnalysisResult['duplicates'],
+): CategoryScore {
   // Measures how tightly coupled the codebase is based on the dependency graph.
   // Low coupling = easier for LLMs to work on isolated parts.
   let score = 70; // baseline
@@ -357,11 +386,21 @@ export function scoreCoupling(s: StaticAnalysisResult['imports']): CategoryScore
   if (s.maxChainDepth <= 5) score += 10;
   else if (s.maxChainDepth > 8) score -= Math.min((s.maxChainDepth - 8) * 3, 15);
 
+  // Context fragmentation: inter-cluster vs intra-cluster import ratio
+  if (fragmentationRatio < 0.3) score += 10;
+  else if (fragmentationRatio > 0.6) score -= 10;
+
+  // Semantic duplicates penalty: each pair confuses LLMs about which version to use
+  if (duplicates.pairs.length > 0) {
+    score -= Math.min(duplicates.pairs.length * 3, 15);
+  }
+
   score = clamp(score);
 
   const findings: string[] = [
     `Avg fan-out: ${s.avgFanOut} imports/file, avg fan-in: ${s.avgFanIn}`,
     `Max dependency chain depth: ${s.maxChainDepth}`,
+    `Context fragmentation: ${(fragmentationRatio * 100).toFixed(0)}% cross-cluster imports`,
   ];
   const recommendations: string[] = [];
 
@@ -371,6 +410,15 @@ export function scoreCoupling(s: StaticAnalysisResult['imports']): CategoryScore
   }
   if (s.orphanFiles.length > 5) {
     findings.push(`${s.orphanFiles.length} orphan files (no local imports or importers)`);
+  }
+  if (fragmentationRatio > 0.5) {
+    recommendations.push('High context fragmentation — related logic is scattered across many clusters. Consider grouping related files into cohesive modules');
+  }
+  if (duplicates.pairs.length > 0) {
+    findings.push(`${duplicates.pairs.length} potential duplicate pair(s) detected`);
+    for (const p of duplicates.pairs.slice(0, 3)) {
+      recommendations.push(`Consolidate \`${p.fileA}\` and \`${p.fileB}\` (${Math.round(p.similarity * 100)}% export overlap)`);
+    }
   }
 
   return { name: 'Coupling', score, weight: 0, findings, recommendations };
@@ -399,6 +447,29 @@ export function scoreDevInfra(s: StaticAnalysisResult['devInfra']): CategoryScor
   return { name: 'Developer Infrastructure', score, weight: 0, findings, recommendations };
 }
 
+export function scoreSecurity(s: StaticAnalysisResult['security']): CategoryScore {
+  const score = s.score;
+
+  const findings: string[] = [];
+  const recommendations: string[] = [];
+
+  if (s.findings.length === 0) {
+    findings.push('No security issues detected');
+  } else {
+    for (const f of s.findings) {
+      findings.push(`${f.check}: ${f.detail}`);
+    }
+  }
+
+  if (!s.hasGitignore) recommendations.push('Add a .gitignore file to prevent accidental secret exposure');
+  if (s.envExposed) recommendations.push('Add .env to .gitignore to protect secrets');
+  if (s.hardcodedSecretFiles.length > 0) recommendations.push('Move hardcoded secrets to environment variables');
+  if (s.sensitiveFilesTracked.length > 0) recommendations.push('Remove sensitive files (*.pem, *.key, credentials.*) from the repository');
+  if (s.missingLockfile) recommendations.push('Add a dependency lockfile for reproducible builds');
+
+  return { name: 'Security', score, weight: 0, findings, recommendations };
+}
+
 export function computeScores(
   staticResult: StaticAnalysisResult,
   taskResults: TaskExecutionResult[],
@@ -413,8 +484,9 @@ export function computeScores(
     { ...scoreModularity(staticResult.modularity, staticResult.documentation), weight: weights.modularity },
     { ...scoreContextEfficiency(staticResult.noise), weight: weights.contextEfficiency },
     { ...scoreNaming(staticResult.naming), weight: weights.naming },
-    { ...scoreCoupling(staticResult.imports), weight: weights.coupling },
+    { ...scoreCoupling(staticResult.imports, staticResult.fragmentationRatio, staticResult.duplicates), weight: weights.coupling },
     { ...scoreDevInfra(staticResult.devInfra), weight: weights.devInfra },
+    { ...scoreSecurity(staticResult.security), weight: weights.security },
   ];
 
   if (!skipEmpirical) {

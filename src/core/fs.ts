@@ -1,6 +1,7 @@
-import { readdir, stat, readFile } from 'node:fs/promises';
+import { access, readdir, stat, readFile } from 'node:fs/promises';
 import { join, extname, basename, relative } from 'node:path';
 import { IGNORED_DIRS, BINARY_EXTENSIONS, SOURCE_EXTENSIONS } from '../constants.js';
+import type { TokenHeatmap, TokenHeatmapEntry } from '../types.js';
 
 export interface WalkEntry {
   path: string;
@@ -277,6 +278,37 @@ export function buildDirectorySummary(files: WalkEntry[]): string {
   }
 
   return lines.join('\n');
+}
+
+// Builds a token budget heatmap: estimates token counts per top-level directory,
+// sorted by consumption descending. Flags directories consuming >25% as "context hogs".
+export function buildTokenHeatmap(entries: WalkEntry[]): TokenHeatmap {
+  const sourceFiles = entries.filter(e => e.isFile && isSourceFile(e.ext));
+
+  // Aggregate bytes by top-level directory
+  const dirBytes = new Map<string, number>();
+  for (const file of sourceFiles) {
+    const firstSlash = file.relativePath.indexOf('/');
+    const dir = firstSlash === -1 ? '(root)' : file.relativePath.slice(0, firstSlash);
+    dirBytes.set(dir, (dirBytes.get(dir) ?? 0) + file.bytes);
+  }
+
+  // Estimate tokens: chars / 4 (rough estimate, avoids tokenizer dependency)
+  const totalTokens = [...dirBytes.values()].reduce((sum, bytes) => sum + Math.round(bytes / 4), 0);
+
+  const heatmapEntries: TokenHeatmapEntry[] = [...dirBytes.entries()]
+    .map(([path, bytes]) => {
+      const tokens = Math.round(bytes / 4);
+      const percentage = totalTokens > 0 ? Math.round((tokens / totalTokens) * 1000) / 10 : 0;
+      return { path, tokens, percentage, isContextHog: percentage > 25 };
+    })
+    .sort((a, b) => b.tokens - a.tokens);
+
+  return {
+    entries: heatmapEntries,
+    total: totalTokens,
+    totalFiles: sourceFiles.length,
+  };
 }
 
 // Detects AI coding tool configuration files (.claude/, .cursorrules, etc.).

@@ -1,28 +1,32 @@
 export const SCORING_WEIGHTS = {
-  documentation: 0.18,
-  taskCompletion: 0.20,
-  fileSizes: 0.12,
-  structure: 0.08,
-  modularity: 0.10,
-  contextEfficiency: 0.08,
+  documentation: 0.17,
+  taskCompletion: 0.18,
+  fileSizes: 0.10,
+  structure: 0.07,
+  modularity: 0.09,
+  contextEfficiency: 0.07,
   tokenEfficiency: 0.10,
   naming: 0.04,
   devInfra: 0.05,
   coupling: 0.05,
+  security: 0.08,
 } as const;
 
 export const SCORING_WEIGHTS_NO_EMPIRICAL = {
-  documentation: 0.25,
+  documentation: 0.22,
   taskCompletion: 0,
-  fileSizes: 0.17,
-  structure: 0.10,
-  modularity: 0.13,
-  contextEfficiency: 0.13,
+  fileSizes: 0.15,
+  structure: 0.09,
+  modularity: 0.11,
+  contextEfficiency: 0.10,
   tokenEfficiency: 0,
-  naming: 0.07,
-  devInfra: 0.08,
-  coupling: 0.07,
+  naming: 0.06,
+  devInfra: 0.07,
+  coupling: 0.06,
+  security: 0.14,
 } as const;
+
+export const SCORING_VERSION = '1.0.0';
 
 export const IGNORED_DIRS = new Set([
   'node_modules',

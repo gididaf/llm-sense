@@ -20,7 +20,9 @@ export interface LlmSenseJsonOutput {
     title: string;
     priority: 1 | 2 | 3;
     estimatedScoreImpact: number;
+    estimatedEffort?: string;
     category: string;
+    dependsOn?: string[];
   }>;
   empirical: {
     enabled: boolean;
@@ -31,10 +33,26 @@ export interface LlmSenseJsonOutput {
     avgCost: number;
     totalCost: number;
   } | null;
+  tokenHeatmap: {
+    entries: Array<{ path: string; tokens: number; percentage: number; isContextHog: boolean }>;
+    total: number;
+    totalFiles: number;
+  };
+  configDrift: {
+    totalReferences: number;
+    validReferences: number;
+    staleReferences: Array<{ file: string; line: number; reference: string; type: string; reason: string }>;
+    freshnessScore: number;
+  };
+  security: {
+    score: number;
+    findings: Array<{ check: string; severity: string; detail: string; pointsDeducted: number }>;
+  };
   meta: {
     duration: number;
     claudeModel: string;
     mode: 'full' | 'static-only';
+    scoringVersion: string;
   };
 }
 
@@ -64,7 +82,7 @@ export function buildJsonOutput(
   }
 
   return {
-    version: '0.8.0',
+    version: '1.0.0',
     timestamp: report.generatedAt,
     target: report.targetPath,
     score: report.overallScore,
@@ -83,13 +101,22 @@ export function buildJsonOutput(
       title: r.title,
       priority: r.priority,
       estimatedScoreImpact: r.estimatedScoreImpact,
+      estimatedEffort: r.estimatedEffort,
       category: r.category,
+      ...(r.dependsOn && r.dependsOn.length > 0 ? { dependsOn: r.dependsOn } : {}),
     })),
+    tokenHeatmap: report.staticAnalysis.tokenHeatmap,
+    configDrift: report.staticAnalysis.documentation.configDrift,
+    security: {
+      score: report.staticAnalysis.security.score,
+      findings: report.staticAnalysis.security.findings,
+    },
     empirical,
     meta: {
       duration: report.totalDurationMs,
       claudeModel: model ?? 'default',
       mode,
+      scoringVersion: '0.9.0',
     },
   };
 }

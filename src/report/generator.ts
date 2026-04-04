@@ -45,6 +45,44 @@ export function generateReport(report: FinalReport): string {
   lines.push('---');
   lines.push('');
 
+  // Token Budget Heatmap — always shown
+  const heatmap = report.staticAnalysis.tokenHeatmap;
+  if (heatmap.entries.length > 0) {
+    lines.push('### Token Budget Heatmap');
+    lines.push('');
+    const maxTokens = heatmap.entries[0].tokens;
+    const barWidth = 18;
+
+    for (const entry of heatmap.entries.slice(0, 15)) {
+      const barLen = Math.max(1, Math.round((entry.tokens / maxTokens) * barWidth));
+      const bar = '\u2588'.repeat(barLen) + '\u2591'.repeat(barWidth - barLen);
+      const hog = entry.isContextHog ? ' \u26A0\uFE0F context hog' : '';
+      lines.push(`  ${entry.path.padEnd(25)} ${entry.tokens.toLocaleString().padStart(8)} tokens  (${entry.percentage.toFixed(1).padStart(4)}%) ${bar}${hog}`);
+    }
+    if (heatmap.entries.length > 15) {
+      lines.push(`  ... and ${heatmap.entries.length - 15} more directories`);
+    }
+    lines.push(`  **Total:** ~${heatmap.total.toLocaleString()} tokens across ${heatmap.totalFiles} source files`);
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+  }
+
+  // Config Drift — show if any stale references found
+  const drift = report.staticAnalysis.documentation.configDrift;
+  if (drift.staleReferences.length > 0) {
+    lines.push('### Config Drift');
+    lines.push('');
+    lines.push(`**${drift.staleReferences.length} stale reference(s)** found across config files (freshness: ${drift.freshnessScore}%)`);
+    lines.push('');
+    for (const ref of drift.staleReferences) {
+      lines.push(`- **${ref.file}** line ${ref.line}: \`${ref.reference}\` — ${ref.reason}`);
+    }
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+  }
+
   // How to Use — instructions for copy-pasting tasks into Claude Code or Ralph
   lines.push('## How to Use This Report');
   lines.push('');

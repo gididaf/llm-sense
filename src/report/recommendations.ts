@@ -368,6 +368,130 @@ export function buildExecutableRecommendations(
     });
   }
 
+  // Security recommendations
+  const secCat = categories.find(c => c.name === 'Security');
+  if (secCat && staticAnalysis.security.score < 100) {
+    const sec = staticAnalysis.security;
+
+    if (sec.envExposed) {
+      recs.push({
+        id: `rec-${idCounter++}`,
+        title: 'Add .env to .gitignore to protect secrets',
+        priority: 1,
+        estimatedScoreImpact: 5,
+        category: 'Security',
+        currentState: '.env file exists but is not in .gitignore — secrets may be committed to version control.',
+        desiredEndState: '.env is listed in .gitignore and secrets are safe from accidental commits.',
+        filesToModify: [{ path: '.gitignore', action: 'Add .env entry' }],
+        implementationSteps: [
+          'Open or create .gitignore',
+          'Add `.env` and `.env.*` (except `.env.example`) to the ignore list',
+          'Verify .env is no longer tracked: `git rm --cached .env` if already committed',
+        ],
+        acceptanceCriteria: [
+          '.gitignore contains .env entry',
+          '`git status` does not show .env as tracked',
+        ],
+        context: 'LLMs may inadvertently expose or reference secrets from .env files. Keeping them out of version control prevents this risk.',
+      });
+    }
+
+    if (!sec.hasGitignore) {
+      recs.push({
+        id: `rec-${idCounter++}`,
+        title: 'Create .gitignore file',
+        priority: 1,
+        estimatedScoreImpact: 3,
+        category: 'Security',
+        currentState: 'No .gitignore file exists — risk of committing secrets, build artifacts, or sensitive files.',
+        desiredEndState: '.gitignore exists with appropriate patterns for this project type.',
+        filesToModify: [{ path: '.gitignore', action: 'Create with appropriate patterns' }],
+        implementationSteps: [
+          'Create .gitignore at project root',
+          'Add common patterns: .env, node_modules/, dist/, build/, *.log',
+          'Add language-specific patterns for this project',
+        ],
+        acceptanceCriteria: ['.gitignore exists with relevant patterns'],
+        context: 'A .gitignore file prevents accidental commits of secrets, build artifacts, and temporary files.',
+      });
+    }
+
+    if (sec.hardcodedSecretFiles.length > 0) {
+      recs.push({
+        id: `rec-${idCounter++}`,
+        title: `Move hardcoded secrets to environment variables (${sec.hardcodedSecretFiles.length} file${sec.hardcodedSecretFiles.length > 1 ? 's' : ''})`,
+        priority: 1,
+        estimatedScoreImpact: 5,
+        category: 'Security',
+        currentState: `${sec.hardcodedSecretFiles.length} file(s) contain potential hardcoded secrets (API keys, passwords, tokens).`,
+        desiredEndState: 'All secrets are loaded from environment variables or a secrets manager.',
+        filesToModify: sec.hardcodedSecretFiles.slice(0, 5).map(f => ({ path: f, action: 'Replace hardcoded secrets with env vars' })),
+        implementationSteps: [
+          'Identify hardcoded secret values in flagged files',
+          'Move each to an environment variable (e.g., process.env.API_KEY)',
+          'Add the variable names to .env.example (without values)',
+          'Update documentation with required environment variables',
+        ],
+        acceptanceCriteria: [
+          'No hardcoded secrets remain in source files',
+          '.env.example lists all required secret variable names',
+        ],
+        context: 'Hardcoded secrets are a security risk and can be accidentally exposed by LLMs in code suggestions or commits.',
+      });
+    }
+  }
+
+  // Config drift recommendations
+  const driftResult = staticAnalysis.documentation.configDrift;
+  if (driftResult.staleReferences.length > 0) {
+    recs.push({
+      id: `rec-${idCounter++}`,
+      title: `Fix ${driftResult.staleReferences.length} stale config reference${driftResult.staleReferences.length > 1 ? 's' : ''}`,
+      priority: 2,
+      estimatedScoreImpact: Math.min(driftResult.staleReferences.length * 2, 10),
+      category: 'Documentation',
+      currentState: `Config files reference ${driftResult.staleReferences.length} path(s)/command(s) that no longer exist. Stale references actively mislead LLMs.`,
+      desiredEndState: 'All references in config files point to existing files, directories, and commands.',
+      filesToModify: [...new Set(driftResult.staleReferences.map(r => r.file))].map(f => ({ path: f, action: 'Update stale references' })),
+      implementationSteps: [
+        'Review each stale reference listed below:',
+        ...driftResult.staleReferences.map(r => `  - ${r.file} line ${r.line}: \`${r.reference}\` — ${r.reason}`),
+        'For each: update to the correct path/command, or remove if no longer relevant',
+      ],
+      acceptanceCriteria: [
+        'All file/directory references in config files resolve to existing paths',
+        'All command references in config files match available scripts',
+      ],
+      context: 'Stale config references are worse than no config at all — they actively mislead LLMs into looking for files that don\'t exist or running commands that fail.',
+    });
+  }
+
+  // Token heatmap recommendations
+  const contextHogs = staticAnalysis.tokenHeatmap.entries.filter(e => e.isContextHog);
+  if (contextHogs.length > 0) {
+    for (const hog of contextHogs.slice(0, 2)) {
+      recs.push({
+        id: `rec-${idCounter++}`,
+        title: `Reduce context weight of ${hog.path}/ (${hog.percentage.toFixed(0)}% of token budget)`,
+        priority: 3,
+        estimatedScoreImpact: 2,
+        category: 'Context Efficiency',
+        currentState: `${hog.path}/ consumes ${hog.percentage.toFixed(1)}% of the estimated token budget (${hog.tokens.toLocaleString()} tokens). This is disproportionate.`,
+        desiredEndState: `${hog.path}/ is split into smaller, more focused modules, or large files within it are refactored.`,
+        filesToModify: [{ path: hog.path, action: 'Split large files or reorganize into sub-modules' }],
+        implementationSteps: [
+          `Review files in ${hog.path}/ for opportunities to split or extract`,
+          'Focus on the largest files first — they consume the most context',
+          'Consider extracting data, constants, or generated code into separate directories',
+        ],
+        acceptanceCriteria: [
+          `${hog.path}/ consumes less than 25% of the total token budget`,
+        ],
+        context: 'When a single directory dominates the token budget, LLMs may waste context capacity reading it, leaving less room for understanding other parts of the codebase.',
+      });
+    }
+  }
+
   // Assign effort estimates and dependencies
   for (const rec of recs) {
     rec.estimatedEffort = estimateEffort(rec);
@@ -404,6 +528,17 @@ function estimateEffort(rec: ExecutableRecommendation): ExecutableRecommendation
   if (rec.title.includes('directory')) return '2hr';
   if (rec.title.includes('Consolidate')) return '2hr';
 
+  // Security tasks
+  if (rec.title.includes('.gitignore')) return '5min';
+  if (rec.title.includes('.env')) return '5min';
+  if (rec.title.includes('hardcoded secrets')) return '2hr';
+
+  // Config drift
+  if (rec.title.includes('stale config')) return '5min';
+
+  // Token heatmap
+  if (rec.title.includes('context weight')) return '2hr';
+
   return '30min';
 }
 
@@ -423,6 +558,18 @@ function findDependencies(
   if (rec.title.includes('inline comments')) {
     const splits = allRecs.filter(r => r.title.startsWith('Split'));
     if (splits.length > 0) deps.push(...splits.map(s => s.id));
+  }
+
+  // "Fix stale config references" depends on having the config files exist
+  if (rec.title.includes('stale config')) {
+    const claudeMdRec = allRecs.find(r => r.title.includes('Create comprehensive CLAUDE.md'));
+    if (claudeMdRec) deps.push(claudeMdRec.id);
+  }
+
+  // ".env to .gitignore" depends on having a .gitignore
+  if (rec.title.includes('.env') && rec.category === 'Security') {
+    const gitignoreRec = allRecs.find(r => r.title.includes('Create .gitignore'));
+    if (gitignoreRec) deps.push(gitignoreRec.id);
   }
 
   return deps.length > 0 ? deps : undefined;
