@@ -69,7 +69,7 @@ src/
 │   └── autoFix.ts              # Phase 7: worktree isolation → Claude Code → re-score → patch merge
 └── report/
     ├── generator.ts            # Phase 6: Markdown report formatting + rendering
-    ├── recommendations.ts      # Executable recommendation builder + CLAUDE.md draft + plan generator + effort/dependency assignment
+    ├── recommendations.ts      # Executable recommendation builder + CLAUDE.md draft + effort/dependency assignment
     ├── jsonOutput.ts            # JSON formatter + summary one-liner for --format json/summary
     ├── badge.ts                # SVG badge generator for --badge flag
     ├── comparison.ts           # Side-by-side repo comparison (--compare)
@@ -228,7 +228,7 @@ npm publish          # publish to npm
 - **Exit codes:** 0 = success, 1 = score below `--min-score` threshold, 2 = analysis failure (path not found, Claude CLI error, etc.).
 - **Watch mode platform support:** `fs.watch` with `recursive: true` may not work on all platforms. macOS and Windows support it natively; Linux may require `inotify` kernel support.
 - **Auto-fix worktree cleanup:** Auto-fix always cleans up worktrees, even on failure. If the process is killed mid-fix, stale worktrees in `/tmp/llm-sense-wt-*` may need manual cleanup.
-- **Config drift false positives:** The drift detector only matches paths containing `/` (directory separators) to avoid flagging brand names like "Express.js". Built-in npm commands (`install`, `ci`, etc.) are excluded from script validation. Workspace package.json files are checked for monorepo script resolution.
+- **Config drift false positives:** The drift detector only matches paths containing `/` (directory separators) to avoid flagging brand names like "Express.js". Template placeholders containing `{` (e.g., `src/modules/{feature}/routes`) are skipped. Built-in npm commands (`install`, `ci`, etc.) are excluded from script validation. Workspace package.json files are checked for monorepo script resolution.
 - **Token heatmap uses byte-based estimation:** Tokens are estimated as `bytes / 4` — this is rough but avoids a tokenizer dependency. Actual token counts may vary by 20-40% depending on code density.
 - **Security scanning skips test files:** The secret detection regex skips files in test/fixture/mock/example directories to avoid false positives from test fixtures. Only the first 16KB of each file is scanned.
 - **Scoring version tracking:** History entries include `scoringVersion` starting from v0.9.0. The trend chart shows version boundaries. Old entries without a version are treated as pre-0.9.0.
@@ -239,6 +239,10 @@ npm publish          # publish to npm
 - **PR delta requires git history:** `--pr-delta` needs at least one previous score in `.llm-sense/history.json` to compute a delta. On first run, it shows the full score with delta 0.
 - **Trend chart profiles:** History entries include profile name. The `--trend` chart shows scores from all profiles intermixed — compare scores from the same profile only.
 - **Context window token estimates are rough:** Tokens are estimated as `bytes / 4`. Actual token counts vary by 20-40% depending on code density. The profiling is directionally accurate but not precise.
+- **Context hog recommendation suppressed for sole directories:** If a directory (e.g., `src/`) consumes >90% of tokens but there are only 1-2 top-level dirs, the "reduce context weight" recommendation is skipped — it's meaningless when that directory IS the codebase.
+- **Monorepo mode is static-only:** Empirical testing (Phases 2-4) is not supported in monorepo mode. If `--bugs`/`--features` flags are passed with a detected monorepo, a warning is shown suggesting `--no-monorepo` for full analysis.
+- **`--plan` flag removed in v1.3.1:** The improvement roadmap is now always included in the generated report as a "Roadmap" section. The report is the single artifact to pass to an LLM.
+- **Phase 2b timeout:** LLM verification uses a 120s timeout (matching Phase 2). Large repos (500+ files) can take 60-90s for structured output calls.
 
 ## Environment Setup
 
