@@ -6,7 +6,7 @@ const program = new Command();
 program
   .name('llm-sense')
   .description('Analyze how LLM-friendly a codebase is')
-  .version('0.8.0')
+  .version('1.0.0')
   .option('--path <dir>', 'Path to the codebase to analyze', '.')
   .option('--bugs <n>', 'Number of synthetic bug tasks', '5')
   .option('--features <n>', 'Number of synthetic feature tasks', '5')
@@ -32,6 +32,9 @@ program
   .option('--trend', 'Show score trend chart from history')
   .option('-i, --interactive', 'Interactive mode after analysis')
   .option('--watch', 'Watch for changes and re-score (static only)')
+  .option('--monorepo', 'Force per-package monorepo analysis')
+  .option('--no-monorepo', 'Skip monorepo detection, analyze as single repo')
+  .option('--no-cache', 'Force full re-analysis, ignoring cached results')
   .action(async (options) => {
     const targetPath = resolve(options.path);
 
@@ -87,18 +90,30 @@ program
       plan: options.plan ?? false,
       compare: options.compare ? resolve(options.compare) : undefined,
       interactive: options.interactive ?? false,
+      monorepo: options.monorepo === true,
+      noMonorepo: options.monorepo === false,
+      noCache: options.cache === false,
     });
   });
 
 // init subcommand — uses argument instead of --path to avoid conflict with parent option
 program
+  .command('serve')
+  .description('Start MCP server for real-time AI tool integration (stdin/stdout JSON-RPC)')
+  .action(async () => {
+    const { startMcpServer } = await import('./mcp/server.js');
+    await startMcpServer();
+  });
+
+program
   .command('init [dir]')
-  .description('Scaffold AI config files (CLAUDE.md, .cursorrules, etc.)')
+  .description('Scaffold AI config files (CLAUDE.md, .cursorrules, copilot-instructions.md, AGENTS.md)')
   .option('--verbose', 'Show detailed output')
+  .option('--overwrite', 'Overwrite existing config files')
   .action(async (dir, options) => {
     const targetPath = resolve(dir ?? '.');
     const { runInit } = await import('./commands/init.js');
-    await runInit(targetPath, options.verbose ?? false);
+    await runInit(targetPath, options.verbose ?? false, options.overwrite ?? false);
   });
 
 async function main() {

@@ -26,6 +26,9 @@ export interface CliOptions {
   plan: boolean;
   compare?: string;
   interactive: boolean;
+  monorepo: boolean;
+  noMonorepo: boolean;
+  noCache: boolean;
 }
 
 // ─── Phase 1: Static Analysis ─────────────────────────────
@@ -93,6 +96,9 @@ export interface DocumentationResult {
   claudeMdContent: ClaudeMdContentScore | null;
   vibeCoderContext: VibeCoderContextFiles;
   aiConfigScores: AiConfigScore[];
+  configDrift: ConfigDriftResult;
+  aiConfigCoverage: number;
+  aiConfigConsistency: number;
 }
 
 export interface ImportsResult {
@@ -140,6 +146,70 @@ export interface AiConfigScore {
   exists: boolean;
   contentScore: number;
   lines: number;
+  sectionScores?: Record<string, { found: boolean; score: number }>;
+}
+
+// ─── Config Drift Detection ──────────────────────────────
+
+export interface StaleReference {
+  file: string;
+  line: number;
+  reference: string;
+  type: 'path' | 'command';
+  reason: string;
+}
+
+export interface ConfigDriftResult {
+  totalReferences: number;
+  validReferences: number;
+  staleReferences: StaleReference[];
+  freshnessScore: number;
+}
+
+// ─── Token Budget Heatmap ────────────────────────────────
+
+export interface TokenHeatmapEntry {
+  path: string;
+  tokens: number;
+  percentage: number;
+  isContextHog: boolean;
+}
+
+export interface TokenHeatmap {
+  entries: TokenHeatmapEntry[];
+  total: number;
+  totalFiles: number;
+}
+
+// ─── Security Scoring ────────────────────────────────────
+
+export interface SecurityFinding {
+  check: string;
+  severity: 'high' | 'medium' | 'low';
+  detail: string;
+  pointsDeducted: number;
+}
+
+export interface SecurityResult {
+  score: number;
+  findings: SecurityFinding[];
+  hasGitignore: boolean;
+  envExposed: boolean;
+  hardcodedSecretFiles: string[];
+  sensitiveFilesTracked: string[];
+  missingLockfile: boolean;
+}
+
+export interface DuplicatePair {
+  fileA: string;
+  fileB: string;
+  similarity: number;
+  sharedExports: string[];
+}
+
+export interface DuplicatesResult {
+  pairs: DuplicatePair[];
+  totalFilesScanned: number;
 }
 
 export interface StaticAnalysisResult {
@@ -151,6 +221,38 @@ export interface StaticAnalysisResult {
   modularity: ModularityResult;
   noise: NoiseResult;
   devInfra: DevInfraResult;
+  security: SecurityResult;
+  tokenHeatmap: TokenHeatmap;
+  duplicates: DuplicatesResult;
+  fragmentationRatio: number;
+}
+
+// ─── LLM Verification (Phase 2b) ─────────────────────────
+
+export const LlmVerificationSchema = z.object({
+  documentationQuality: z.object({
+    score: z.number().min(1).max(10),
+    reasoning: z.string(),
+    isBoilerplate: z.boolean(),
+  }),
+  namingClarity: z.object({
+    score: z.number().min(1).max(10),
+    reasoning: z.string(),
+    confusingNames: z.array(z.string()),
+  }),
+  architectureClarity: z.object({
+    score: z.number().min(1).max(10),
+    reasoning: z.string(),
+    suggestions: z.array(z.string()),
+  }),
+});
+
+export type LlmVerification = z.infer<typeof LlmVerificationSchema>;
+
+export interface LlmVerificationAdjustments {
+  documentation: number; // ±15
+  naming: number;        // ±15
+  coupling: number;      // ±15 (architecture clarity maps to coupling)
 }
 
 // ─── Phase 2: LLM Understanding ──────────────────────────
@@ -248,7 +350,7 @@ export interface ExecutableRecommendation {
   title: string;
   priority: 1 | 2 | 3;
   estimatedScoreImpact: number;
-  estimatedEffort: '5min' | '30min' | '2hr' | 'half-day';
+  estimatedEffort?: '5min' | '30min' | '2hr' | 'half-day';
   category: string;
   currentState: string;
   desiredEndState: string;
@@ -267,6 +369,7 @@ export interface HistoryEntry {
   categoryScores: Record<string, number>;
   targetPath: string;
   costUsd: number;
+  scoringVersion?: string;
 }
 
 export interface FinalReport {
@@ -283,6 +386,31 @@ export interface FinalReport {
   totalDurationMs: number;
   generatedAt: string;
   targetPath: string;
+}
+
+// ─── Monorepo ────────────────────────────────────────────
+
+export interface MonorepoPackage {
+  name: string;
+  path: string;
+  relativePath: string;
+  fileCount: number;
+}
+
+export interface MonorepoPackageResult {
+  package: MonorepoPackage;
+  score: number;
+  grade: string;
+  topIssue: string;
+  categories: CategoryScore[];
+}
+
+export interface MonorepoResult {
+  isMonorepo: boolean;
+  packages: MonorepoPackage[];
+  packageResults: MonorepoPackageResult[];
+  aggregateScore: number;
+  aggregateGrade: string;
 }
 
 // ─── Errors ───────────────────────────────────────────────

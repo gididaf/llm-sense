@@ -5,7 +5,7 @@ import chalk from 'chalk';
 import { isClaudeInstalled } from '../core/claude.js';
 import { getPreviousScore, saveHistory } from '../core/history.js';
 import { runStaticAnalysis } from './staticAnalysis.js';
-import { runLlmUnderstanding } from './llmUnderstanding.js';
+import { runLlmUnderstanding, runLlmVerification } from './llmUnderstanding.js';
 import { runTaskGeneration } from './taskGeneration.js';
 import { runEmpiricalTesting } from './empiricalTesting.js';
 import { computeScores } from './scoring.js';
@@ -51,11 +51,42 @@ export async function run(options: CliOptions): Promise<void> {
     }
   }
 
+  // Monorepo detection
+  if (!options.noMonorepo) {
+    const { detectMonorepo } = await import('../core/monorepo.js');
+    const { isMonorepo, packages } = await detectMonorepo(options.path);
+
+    if ((isMonorepo && !options.noMonorepo) || options.monorepo) {
+      if (packages.length >= 2) {
+        log(chalk.bold('  Monorepo detected') + ` — ${packages.length} packages found`);
+        log('');
+        await runMonorepo(options, packages, log);
+        return;
+      } else if (options.monorepo) {
+        log(chalk.dim('  --monorepo flag set but only 1 package found. Running whole-repo analysis.'));
+        log('');
+      }
+    }
+  }
+
   // Load previous score for delta display
   const previousScore = await getPreviousScore(options.path);
 
-  // Phase 1: Static Analysis
+  // Phase 1: Static Analysis (with incremental cache check)
   log(chalk.yellow('Phase 1:') + ' Static Analysis');
+  const { walkDir } = await import('../core/fs.js');
+  const rawEntries = await walkDir(options.path);
+
+  // Check cache — if valid, we still re-run analyzers (full re-run strategy)
+  // but we save the manifest for future runs
+  if (!options.noCache) {
+    const { checkCache } = await import('../core/cache.js');
+    const { cacheHit } = await checkCache(options.path, rawEntries);
+    if (cacheHit && options.verbose) {
+      log(chalk.dim('  Cache valid — file tree unchanged since last run'));
+    }
+  }
+
   const { result: staticResult, entries } = await runStaticAnalysis(options.path, options.verbose);
   log(chalk.green('  ✓') + ` ${staticResult.fileSizes.totalFiles} source files, ${staticResult.fileSizes.totalLines.toLocaleString()} lines analyzed`);
   log('');
@@ -63,6 +94,7 @@ export async function run(options: CliOptions): Promise<void> {
   let understanding: CodebaseUnderstanding | null = null;
   let tasks: TaskGenerationResponse | null = null;
   let taskResults: TaskExecutionResult[] = [];
+  let llmAdjustments: import('../types.js').LlmVerificationAdjustments | null = null;
 
   if (!options.skipEmpirical) {
     // Phase 2: LLM Understanding
@@ -78,6 +110,23 @@ export async function run(options: CliOptions): Promise<void> {
     } catch (error) {
       log(chalk.red('  ✗') + ` Failed: ${error instanceof Error ? error.message : error}`);
       log(chalk.dim('    Continuing with static-only scoring...'));
+    }
+    log('');
+
+    // Phase 2b: LLM Verification (validates static findings)
+    log(chalk.yellow('Phase 2b:') + ' LLM Verification');
+    try {
+      const phase2b = await runLlmVerification(
+        options.path, entries, staticResult, options.verbose, options.model,
+      );
+      llmAdjustments = phase2b.adjustments;
+      totalCostUsd += phase2b.costUsd;
+      const v = phase2b.verification;
+      log(chalk.green('  ✓') + ` Doc: ${v.documentationQuality.score}/10, Naming: ${v.namingClarity.score}/10, Architecture: ${v.architectureClarity.score}/10`);
+      log(chalk.dim(`    Cost: $${phase2b.costUsd.toFixed(2)}, Duration: ${(phase2b.durationMs / 1000).toFixed(0)}s`));
+    } catch (error) {
+      log(chalk.red('  ✗') + ` Verification failed: ${error instanceof Error ? error.message : error}`);
+      log(chalk.dim('    Continuing without LLM adjustments...'));
     }
     log('');
 
@@ -130,7 +179,27 @@ export async function run(options: CliOptions): Promise<void> {
   // Phase 5: Scoring
   const skipEmpirical = options.skipEmpirical || taskResults.length === 0;
   log(chalk.yellow('Phase 5:') + ' Scoring');
-  const { categories, overallScore, grade } = computeScores(staticResult, taskResults, skipEmpirical);
+  const scoring = computeScores(staticResult, taskResults, skipEmpirical);
+  let { categories, overallScore, grade } = scoring;
+
+  // Apply LLM verification adjustments (±15 points per category)
+  if (llmAdjustments) {
+    const adjustMap: Record<string, number> = {
+      'Documentation': llmAdjustments.documentation,
+      'Naming': llmAdjustments.naming,
+      'Coupling': llmAdjustments.coupling,
+    };
+    for (const cat of categories) {
+      const adj = adjustMap[cat.name];
+      if (adj !== undefined && adj !== 0) {
+        cat.score = Math.max(0, Math.min(100, cat.score + adj));
+        cat.findings.push(`LLM verification adjustment: ${adj > 0 ? '+' : ''}${adj} pts`);
+      }
+    }
+    // Recompute overall score after adjustments
+    overallScore = Math.round(categories.reduce((sum, cat) => sum + cat.score * cat.weight, 0));
+    grade = overallScore >= 85 ? 'A' : overallScore >= 70 ? 'B' : overallScore >= 55 ? 'C' : overallScore >= 40 ? 'D' : 'F';
+  }
 
   let scoreMsg = `Overall score: ${chalk.bold(`${overallScore}/100`)} (Grade: ${chalk.bold(grade)})`;
   if (previousScore !== null) {
@@ -198,6 +267,7 @@ export async function run(options: CliOptions): Promise<void> {
   for (const cat of categories) {
     categoryScores[cat.name] = cat.score;
   }
+  const { SCORING_VERSION } = await import('../constants.js');
   await saveHistory(options.path, {
     timestamp: new Date().toISOString(),
     overallScore,
@@ -205,7 +275,14 @@ export async function run(options: CliOptions): Promise<void> {
     categoryScores,
     targetPath: options.path,
     costUsd: totalCostUsd,
+    scoringVersion: SCORING_VERSION,
   });
+
+  // Save cache manifest for incremental analysis
+  if (!options.noCache) {
+    const { saveManifest } = await import('../core/cache.js');
+    await saveManifest(options.path, entries);
+  }
 
   // Summary
   log(chalk.bold('  Results'));
@@ -299,4 +376,114 @@ function formatDuration(ms: number): string {
   const minutes = Math.floor(ms / 60_000);
   const seconds = Math.round((ms % 60_000) / 1000);
   return `${minutes}m ${seconds}s`;
+}
+
+async function runMonorepo(
+  options: CliOptions,
+  packages: import('../types.js').MonorepoPackage[],
+  log: (...args: unknown[]) => void,
+): Promise<void> {
+  const startTime = Date.now();
+  const results: import('../types.js').MonorepoPackageResult[] = [];
+
+  for (let i = 0; i < packages.length; i++) {
+    const pkg = packages[i];
+    log(chalk.yellow(`  [${i + 1}/${packages.length}]`) + ` Analyzing ${chalk.bold(pkg.name)} (${pkg.relativePath})`);
+
+    try {
+      const { result: staticResult } = await runStaticAnalysis(pkg.path, false);
+      const { categories, overallScore, grade } = computeScores(staticResult, [], true);
+      const recommendations = buildExecutableRecommendations(categories, staticResult, null);
+
+      const topIssue = recommendations.length > 0 ? recommendations[0].title : 'No issues';
+
+      results.push({
+        package: pkg,
+        score: overallScore,
+        grade,
+        topIssue,
+        categories,
+      });
+
+      const bar = scoreBar(overallScore);
+      log(`  ${bar} ${overallScore.toString().padStart(3)}/100 (${grade})`);
+    } catch (error) {
+      log(chalk.red(`  ✗ Failed: ${error instanceof Error ? error.message : error}`));
+      results.push({
+        package: pkg,
+        score: 0,
+        grade: 'F',
+        topIssue: `Analysis failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+        categories: [],
+      });
+    }
+    log('');
+  }
+
+  // Compute aggregate score (weighted by file count)
+  const totalFiles = results.reduce((s, r) => s + r.package.fileCount, 0);
+  const aggregateScore = totalFiles > 0
+    ? Math.round(results.reduce((s, r) => s + r.score * r.package.fileCount, 0) / totalFiles)
+    : 0;
+  const aggregateGrade = aggregateScore >= 85 ? 'A'
+    : aggregateScore >= 70 ? 'B'
+    : aggregateScore >= 55 ? 'C'
+    : aggregateScore >= 40 ? 'D'
+    : 'F';
+
+  const totalDurationMs = Date.now() - startTime;
+
+  // Output based on format
+  if (options.format === 'json') {
+    const jsonOutput = {
+      version: '0.10.0',
+      timestamp: new Date().toISOString(),
+      target: options.path,
+      monorepo: true,
+      aggregateScore,
+      aggregateGrade,
+      packages: results.map(r => ({
+        name: r.package.name,
+        path: r.package.relativePath,
+        fileCount: r.package.fileCount,
+        score: r.score,
+        grade: r.grade,
+        topIssue: r.topIssue,
+        categories: r.categories.map(c => ({
+          name: c.name,
+          score: c.score,
+          weight: c.weight,
+        })),
+      })),
+      meta: { duration: totalDurationMs, mode: 'static-only' },
+    };
+    process.stdout.write(JSON.stringify(jsonOutput, null, 2) + '\n');
+  } else if (options.format === 'summary') {
+    process.stdout.write(`${aggregateScore}/100 ${aggregateGrade} ${options.path} (monorepo: ${packages.length} packages)\n`);
+  } else {
+    // Markdown table
+    log(chalk.bold('  Monorepo Analysis'));
+    log('');
+    log('  | Package | Score | Grade | Top Issue |');
+    log('  |---------|-------|-------|-----------|');
+    for (const r of results.sort((a, b) => b.score - a.score)) {
+      const issue = r.topIssue.length > 40 ? r.topIssue.slice(0, 40) + '...' : r.topIssue;
+      log(`  | ${r.package.name} | ${r.score} | ${r.grade} | ${issue} |`);
+    }
+    log(`  | **Aggregate** | **${aggregateScore}** | **${aggregateGrade}** | |`);
+    log('');
+  }
+
+  // Summary
+  log(chalk.bold('  Results'));
+  log(`  Aggregate: ${aggregateScore}/100 (${aggregateGrade})`);
+  log(`  Packages: ${packages.length}`);
+  log(`  Time: ${formatDuration(totalDurationMs)}`);
+  log('');
+
+  // Min-score threshold
+  if (options.minScore !== undefined && aggregateScore < options.minScore) {
+    log(chalk.red(`  ✗ Aggregate score ${aggregateScore} is below minimum threshold of ${options.minScore}`));
+    process.exit(1);
+  }
 }
