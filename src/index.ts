@@ -6,7 +6,7 @@ const program = new Command();
 program
   .name('llm-sense')
   .description('Analyze how LLM-friendly a codebase is')
-  .version('1.3.0')
+  .version('1.3.1')
   .option('--path <dir>', 'Path to the codebase to analyze', '.')
   .option('--bugs <n>', 'Number of synthetic bug tasks', '5')
   .option('--features <n>', 'Number of synthetic feature tasks', '5')
@@ -27,7 +27,6 @@ program
   .option('--dry-run', 'With --fix: preview changes without applying')
   .option('--fix-continue', 'With --fix: continue on failure instead of stopping')
   .option('--yes', 'Skip confirmation prompts')
-  .option('--plan', 'Show progressive improvement plan')
   .option('--compare <path>', 'Compare with another codebase')
   .option('--trend', 'Show score trend chart from history')
   .option('-i, --interactive', 'Interactive mode after analysis')
@@ -93,7 +92,7 @@ program
       dryRun: options.dryRun ?? false,
       fixContinue: options.fixContinue ?? false,
       yes: options.yes ?? false,
-      plan: options.plan ?? false,
+      plan: false,
       compare: options.compare ? resolve(options.compare) : undefined,
       interactive: options.interactive ?? false,
       monorepo: options.monorepo === true,

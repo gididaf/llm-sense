@@ -4,7 +4,6 @@ import { writeFile } from 'node:fs/promises';
 import chalk from 'chalk';
 import type { FinalReport, CliOptions, ExecutableRecommendation } from './types.js';
 import { generateReport } from './report/generator.js';
-import { generatePlan } from './report/recommendations.js';
 import { buildJsonOutput } from './report/jsonOutput.js';
 
 function prompt(rl: ReturnType<typeof createInterface>, message: string): Promise<string> {
@@ -32,9 +31,8 @@ export async function runInteractive(
       const top = recommendations[0];
       console.log(`    ${chalk.bold('[2]')} View top recommendation (+${top.estimatedScoreImpact} pts: ${top.title.slice(0, 40)}...)`);
     }
-    console.log(`    ${chalk.bold('[3]')} View improvement plan`);
-    console.log(`    ${chalk.bold('[4]')} Export JSON`);
-    console.log(`    ${chalk.bold('[5]')} Show category breakdown`);
+    console.log(`    ${chalk.bold('[3]')} Export JSON`);
+    console.log(`    ${chalk.bold('[4]')} Show category breakdown`);
     console.log(`    ${chalk.bold('[q]')} Quit`);
     console.log('');
 
@@ -46,6 +44,7 @@ export async function runInteractive(
         const outputPath = resolve(options.output);
         await writeFile(outputPath, reportContent, 'utf-8');
         console.log(chalk.green(`  Report saved to ${outputPath}`));
+        console.log(chalk.dim('  The report includes a roadmap + self-contained tasks. Pass it to any LLM to fix your project.'));
         break;
       }
       case '2': {
@@ -72,17 +71,13 @@ export async function runInteractive(
         break;
       }
       case '3': {
-        console.log(generatePlan(recommendations, report.overallScore, report.targetPath));
-        break;
-      }
-      case '4': {
         const jsonOutput = buildJsonOutput(report, report.taskResults.length > 0 ? 'full' : 'static-only', options.model);
         const jsonPath = resolve('llm-sense-output.json');
         await writeFile(jsonPath, JSON.stringify(jsonOutput, null, 2) + '\n', 'utf-8');
         console.log(chalk.green(`  JSON exported to ${jsonPath}`));
         break;
       }
-      case '5': {
+      case '4': {
         console.log('');
         for (const cat of [...report.categories].sort((a, b) => a.score - b.score)) {
           const filled = Math.round(cat.score / 5);
@@ -101,7 +96,7 @@ export async function runInteractive(
         running = false;
         break;
       default:
-        console.log(chalk.dim('  Invalid choice. Enter 1-5 or q.'));
+        console.log(chalk.dim('  Invalid choice. Enter 1-4 or q.'));
     }
   }
 

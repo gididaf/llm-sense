@@ -248,6 +248,9 @@ async function detectConfigDrift(
         if (ref.endsWith(')') || ref.endsWith(']')) continue;
         // Skip file extensions that are clearly references to types, not files
         if (ref.startsWith('.') && !ref.startsWith('./') && !ref.startsWith('../')) continue;
+        // Skip template placeholders like src/modules/{feature}/routes — these are patterns, not real paths
+        // The path regex may truncate at } so we also check for a bare {
+        if (ref.includes('{')) continue;
 
         totalReferences++;
         const fullPath = join(rootPath, ref);

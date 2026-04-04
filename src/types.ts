@@ -23,7 +23,7 @@ export interface CliOptions {
   dryRun: boolean;
   fixContinue: boolean;
   yes: boolean;
-  plan: boolean;
+  plan: boolean; // deprecated — plan is now always included in the report
   compare?: string;
   interactive: boolean;
   monorepo: boolean;

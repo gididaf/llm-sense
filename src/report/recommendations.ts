@@ -467,7 +467,12 @@ export function buildExecutableRecommendations(
   }
 
   // Token heatmap recommendations
-  const contextHogs = staticAnalysis.tokenHeatmap.entries.filter(e => e.isContextHog);
+  // Skip directories that are the sole source directory (e.g., src/ at 95%+ when there's only 1-2 top-level dirs)
+  // — telling the user to "reduce src/" is meaningless when src/ IS the codebase.
+  const topLevelDirs = staticAnalysis.tokenHeatmap.entries.filter(e => e.path !== '(root)');
+  const contextHogs = staticAnalysis.tokenHeatmap.entries.filter(e =>
+    e.isContextHog && !(e.percentage > 90 && topLevelDirs.length <= 2),
+  );
   if (contextHogs.length > 0) {
     for (const hog of contextHogs.slice(0, 2)) {
       recs.push({

@@ -110,18 +110,37 @@ export function generateReport(report: FinalReport): string {
     lines.push('');
   }
 
-  // How to Use — instructions for copy-pasting tasks into Claude Code or Ralph
-  lines.push('## How to Use This Report');
-  lines.push('');
-  lines.push('> Each task below is **self-contained**. Copy any task and paste it into Claude Code');
-  lines.push('> (or feed this report to Ralph) to implement the improvement. Tasks are ordered by impact.');
-  lines.push('> Each task can be executed independently in its own session.');
-  lines.push('');
-  lines.push('---');
-  lines.push('');
-
-  // LLM-Executable Improvement Tasks
+  // Improvement Tasks with roadmap
   if (report.recommendations.length > 0) {
+    lines.push('## How to Use This Report');
+    lines.push('');
+    lines.push('> This report is the single artifact you need. Pass it to Claude Code, Ralph, or any');
+    lines.push('> LLM-powered tool. The roadmap below shows the recommended order. Each task is');
+    lines.push('> **self-contained** — copy any task and execute it independently.');
+    lines.push('>');
+    lines.push('> **Quick fix:** `llm-sense --fix --fix-id <rec-id>` applies a task automatically.');
+    lines.push('');
+
+    // Roadmap table — sorted by impact, shows projected score progression
+    const sorted = [...report.recommendations].sort((a, b) => b.estimatedScoreImpact - a.estimatedScoreImpact);
+    lines.push('### Roadmap');
+    lines.push('');
+    lines.push('| # | Task | Impact | Effort | Projected Score |');
+    lines.push('|---|------|--------|--------|-----------------|');
+    let projected = report.overallScore;
+    for (let i = 0; i < sorted.length; i++) {
+      const rec = sorted[i];
+      projected = Math.min(100, projected + rec.estimatedScoreImpact);
+      const title = rec.title.length > 55 ? rec.title.slice(0, 52) + '...' : rec.title;
+      lines.push(`| ${i + 1} | ${title} | +${rec.estimatedScoreImpact} | ${rec.estimatedEffort ?? '—'} | ${projected}/100 |`);
+    }
+    lines.push('');
+    lines.push(`> **Current:** ${report.overallScore}/100 → **Projected:** ${projected}/100 (+${projected - report.overallScore} points)`);
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+
+    // Full task details
     lines.push('## Improvement Tasks');
     lines.push('');
 

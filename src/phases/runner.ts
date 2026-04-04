@@ -10,7 +10,6 @@ import { runTaskGeneration } from './taskGeneration.js';
 import { runEmpiricalTesting } from './empiricalTesting.js';
 import { computeScores } from './scoring.js';
 import { generateReport, buildExecutableRecommendations } from '../report/generator.js';
-import { generatePlan } from '../report/recommendations.js';
 import { buildJsonOutput, formatSummary } from '../report/jsonOutput.js';
 import { writeBadge } from '../report/badge.js';
 import { buildComparison, formatComparisonMarkdown, formatComparisonJson, type ComparisonRepo } from '../report/comparison.js';
@@ -87,6 +86,10 @@ export async function run(options: CliOptions): Promise<void> {
     if ((isMonorepo && !options.noMonorepo) || options.monorepo) {
       if (packages.length >= 2) {
         log(chalk.bold('  Monorepo detected') + ` — ${packages.length} packages found`);
+        if (!options.skipEmpirical) {
+          log(chalk.yellow('  ⚠ Empirical testing is not supported in monorepo mode — running static-only'));
+          log(chalk.dim('    Use --no-monorepo to run full analysis on the whole repo'));
+        }
         log('');
         await runMonorepo(options, packages, log);
         return;
@@ -328,11 +331,6 @@ export async function run(options: CliOptions): Promise<void> {
   }
   log('');
 
-  // Improvement plan (--plan flag)
-  if (options.plan) {
-    log(generatePlan(recommendations, overallScore, options.path));
-  }
-
   // Comparative report (--compare flag)
   if (options.compare) {
     log(chalk.yellow('  Comparing with:') + ` ${options.compare}`);
@@ -535,6 +533,7 @@ async function runMonorepo(
 ): Promise<void> {
   const startTime = Date.now();
   const results: import('../types.js').MonorepoPackageResult[] = [];
+  const allRecommendations: Map<string, import('../types.js').ExecutableRecommendation[]> = new Map();
 
   for (let i = 0; i < packages.length; i++) {
     const pkg = packages[i];
@@ -546,6 +545,7 @@ async function runMonorepo(
       const recommendations = buildExecutableRecommendations(categories, staticResult, null);
 
       const topIssue = recommendations.length > 0 ? recommendations[0].title : 'No issues';
+      allRecommendations.set(pkg.name, recommendations);
 
       results.push({
         package: pkg,
@@ -611,17 +611,52 @@ async function runMonorepo(
   } else if (options.format === 'summary') {
     process.stdout.write(`${aggregateScore}/100 ${aggregateGrade} ${options.path} (monorepo: ${packages.length} packages)\n`);
   } else {
-    // Markdown table
+    // Terminal table with aligned columns
     log(chalk.bold('  Monorepo Analysis'));
     log('');
-    log('  | Package | Score | Grade | Top Issue |');
-    log('  |---------|-------|-------|-----------|');
-    for (const r of results.sort((a, b) => b.score - a.score)) {
-      const issue = r.topIssue.length > 40 ? r.topIssue.slice(0, 40) + '...' : r.topIssue;
-      log(`  | ${r.package.name} | ${r.score} | ${r.grade} | ${issue} |`);
+
+    const sorted = results.sort((a, b) => b.score - a.score);
+    const nameWidth = Math.max(9, ...sorted.map(r => r.package.name.length), 9 /* Aggregate */);
+    const issueWidth = Math.min(44, process.stdout.columns ? process.stdout.columns - nameWidth - 22 : 44);
+
+    const hdr = `  ${chalk.dim('Package'.padEnd(nameWidth))}  ${chalk.dim('Score')}  ${chalk.dim('Grade')}  ${chalk.dim('Top Issue')}`;
+    log(hdr);
+    log(chalk.dim('  ' + '─'.repeat(nameWidth + 2 + 5 + 2 + 5 + 2 + issueWidth)));
+
+    for (const r of sorted) {
+      const issue = r.topIssue.length > issueWidth ? r.topIssue.slice(0, issueWidth - 1) + '…' : r.topIssue;
+      const gradeColor = r.score >= 70 ? chalk.green : r.score >= 55 ? chalk.yellow : chalk.red;
+      log(`  ${r.package.name.padEnd(nameWidth)}  ${gradeColor(String(r.score).padStart(3))}    ${gradeColor(r.grade.padEnd(1))}      ${chalk.dim(issue)}`);
     }
-    log(`  | **Aggregate** | **${aggregateScore}** | **${aggregateGrade}** | |`);
+
+    log(chalk.dim('  ' + '─'.repeat(nameWidth + 2 + 5 + 2 + 5 + 2 + issueWidth)));
+    const aggColor = aggregateScore >= 70 ? chalk.green : aggregateScore >= 55 ? chalk.yellow : chalk.red;
+    log(`  ${chalk.bold('Aggregate'.padEnd(nameWidth))}  ${aggColor(chalk.bold(String(aggregateScore).padStart(3)))}    ${aggColor(chalk.bold(aggregateGrade))}`);
     log('');
+
+    // Per-package issues breakdown
+    for (const r of sorted) {
+      const recs = allRecommendations.get(r.package.name) ?? [];
+      if (recs.length === 0) continue;
+
+      const showCount = options.verbose ? recs.length : 5;
+      const gradeColor = r.score >= 70 ? chalk.green : r.score >= 55 ? chalk.yellow : chalk.red;
+      log(`  ${chalk.bold(r.package.name)} ${gradeColor(`${r.score}/100`)}`);
+      for (const rec of recs.slice(0, showCount)) {
+        const effort = rec.estimatedEffort ? chalk.dim(` (${rec.estimatedEffort})`) : '';
+        log(`    ${chalk.yellow(`+${rec.estimatedScoreImpact}`)} ${rec.title}${effort}`);
+      }
+      if (recs.length > showCount) {
+        log(chalk.dim(`    … and ${recs.length - showCount} more (use --verbose to show all)`));
+      }
+      log('');
+    }
+  }
+
+  // Badge generation
+  if (options.badge) {
+    const badgePath = await writeBadge(aggregateScore, options.badge);
+    log(chalk.green('  ✓') + ` Badge saved to ${chalk.underline(badgePath)}`);
   }
 
   // Summary

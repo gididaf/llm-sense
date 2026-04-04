@@ -136,7 +136,7 @@ Evaluate:
 
   const { data, result } = await callClaudeWithRetry(
     () => callClaudeStructured(
-      { prompt, cwd: targetPath, timeout: 60_000, model, tools: '', bare: false },
+      { prompt, cwd: targetPath, timeout: 120_000, model, tools: '', bare: false },
       LlmVerificationSchema,
     ),
   );
