@@ -103,5 +103,181 @@
     },
     "targetPath": "/Users/gididaf/Documents/Code/utilities/context-sense",
     "costUsd": 0
+  },
+  {
+    "timestamp": "2026-04-03T09:30:56.634Z",
+    "overallScore": 87,
+    "grade": "A",
+    "categoryScores": {
+      "Documentation": 77,
+      "File Sizes": 83,
+      "Context Efficiency": 84,
+      "Modularity": 100,
+      "Structure": 100,
+      "Naming": 100
+    },
+    "targetPath": "/Users/gididaf/Documents/Code/utilities/context-sense",
+    "costUsd": 0
+  },
+  {
+    "timestamp": "2026-04-03T09:45:18.854Z",
+    "overallScore": 87,
+    "grade": "A",
+    "categoryScores": {
+      "Documentation": 77,
+      "File Sizes": 82,
+      "Context Efficiency": 84,
+      "Modularity": 100,
+      "Structure": 100,
+      "Naming": 100
+    },
+    "targetPath": "/Users/gididaf/Documents/Code/utilities/context-sense",
+    "costUsd": 0
+  },
+  {
+    "timestamp": "2026-04-03T09:53:02.486Z",
+    "overallScore": 87,
+    "grade": "A",
+    "categoryScores": {
+      "Documentation": 79,
+      "File Sizes": 82,
+      "Context Efficiency": 84,
+      "Modularity": 95,
+      "Structure": 100,
+      "Naming": 100
+    },
+    "targetPath": "/Users/gididaf/Documents/Code/utilities/context-sense",
+    "costUsd": 0
+  },
+  {
+    "timestamp": "2026-04-03T14:27:14.869Z",
+    "overallScore": 82,
+    "grade": "B",
+    "categoryScores": {
+      "Documentation": 79,
+      "File Sizes": 83,
+      "Modularity": 95,
+      "Context Efficiency": 84,
+      "Structure": 100,
+      "Developer Infrastructure": 20,
+      "Naming": 100,
+      "Coupling": 84
+    },
+    "targetPath": "/Users/gididaf/Documents/Code/utilities/context-sense",
+    "costUsd": 0
+  },
+  {
+    "timestamp": "2026-04-03T14:27:21.724Z",
+    "overallScore": 82,
+    "grade": "B",
+    "categoryScores": {
+      "Documentation": 79,
+      "File Sizes": 83,
+      "Structure": 100,
+      "Modularity": 95,
+      "Context Efficiency": 84,
+      "Naming": 100,
+      "Coupling": 84,
+      "Developer Infrastructure": 20
+    },
+    "targetPath": "/Users/gididaf/Documents/Code/utilities/context-sense",
+    "costUsd": 0
+  },
+  {
+    "timestamp": "2026-04-04T05:44:48.521Z",
+    "overallScore": 83,
+    "grade": "B",
+    "categoryScores": {
+      "Documentation": 75,
+      "File Sizes": 81,
+      "Structure": 100,
+      "Modularity": 95,
+      "Context Efficiency": 84,
+      "Naming": 100,
+      "Coupling": 84,
+      "Developer Infrastructure": 20,
+      "Security": 100
+    },
+    "targetPath": "/Users/gididaf/Documents/Code/utilities/context-sense",
+    "costUsd": 0,
+    "scoringVersion": "0.9.0"
+  },
+  {
+    "timestamp": "2026-04-04T05:44:54.495Z",
+    "overallScore": 83,
+    "grade": "B",
+    "categoryScores": {
+      "Documentation": 75,
+      "File Sizes": 81,
+      "Structure": 100,
+      "Modularity": 95,
+      "Context Efficiency": 84,
+      "Naming": 100,
+      "Coupling": 84,
+      "Developer Infrastructure": 20,
+      "Security": 100
+    },
+    "targetPath": "/Users/gididaf/Documents/Code/utilities/context-sense",
+    "costUsd": 0,
+    "scoringVersion": "0.9.0"
+  },
+  {
+    "timestamp": "2026-04-04T06:06:29.990Z",
+    "overallScore": 82,
+    "grade": "B",
+    "categoryScores": {
+      "Task Completion": 77,
+      "Documentation": 71,
+      "File Sizes": 77,
+      "Token Efficiency": 100,
+      "Modularity": 95,
+      "Security": 100,
+      "Structure": 100,
+      "Context Efficiency": 84,
+      "Coupling": 84,
+      "Developer Infrastructure": 20,
+      "Naming": 100
+    },
+    "targetPath": "/Users/gididaf/Documents/Code/utilities/context-sense",
+    "costUsd": 6.370292500000001,
+    "scoringVersion": "0.9.0"
+  },
+  {
+    "timestamp": "2026-04-04T06:14:10.258Z",
+    "overallScore": 82,
+    "grade": "B",
+    "categoryScores": {
+      "Documentation": 71,
+      "File Sizes": 76,
+      "Structure": 100,
+      "Modularity": 95,
+      "Context Efficiency": 84,
+      "Naming": 100,
+      "Coupling": 94,
+      "Developer Infrastructure": 20,
+      "Security": 100
+    },
+    "targetPath": "/Users/gididaf/Documents/Code/utilities/context-sense",
+    "costUsd": 0,
+    "scoringVersion": "0.9.0"
+  },
+  {
+    "timestamp": "2026-04-04T06:15:14.392Z",
+    "overallScore": 82,
+    "grade": "B",
+    "categoryScores": {
+      "Documentation": 71,
+      "File Sizes": 76,
+      "Security": 100,
+      "Modularity": 95,
+      "Context Efficiency": 84,
+      "Structure": 100,
+      "Developer Infrastructure": 20,
+      "Naming": 100,
+      "Coupling": 94
+    },
+    "targetPath": "/Users/gididaf/Documents/Code/utilities/context-sense",
+    "costUsd": 0,
+    "scoringVersion": "1.0.0"
   }
 ]

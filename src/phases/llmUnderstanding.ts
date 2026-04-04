@@ -1,8 +1,16 @@
 import { callClaudeStructured, callClaudeWithRetry } from '../core/claude.js';
-import { readFileSafe, buildTree, getSourceFiles, type WalkEntry } from '../core/fs.js';
+import { readFileSafe, buildTree, getSourceFiles, stratifiedSample, type WalkEntry } from '../core/fs.js';
 import { DEPENDENCY_FILE_NAMES } from '../constants.js';
-import { CodebaseUnderstandingSchema, type CodebaseUnderstanding, type StaticAnalysisResult } from '../types.js';
+import {
+  CodebaseUnderstandingSchema,
+  LlmVerificationSchema,
+  type CodebaseUnderstanding,
+  type LlmVerification,
+  type LlmVerificationAdjustments,
+  type StaticAnalysisResult,
+} from '../types.js';
 import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
 
 export async function runLlmUnderstanding(
   targetPath: string,
@@ -71,6 +79,81 @@ Focus on aspects that affect LLM-friendliness: how easy is it for an LLM to navi
 
   return {
     data,
+    costUsd: result.costUsd,
+    durationMs: result.durationMs,
+  };
+}
+
+// Phase 2b: LLM Verification — validates static analysis findings with an LLM.
+// Runs a focused call to check documentation quality, naming clarity, and architecture.
+// Returns adjustments (±15 points) for each category.
+export async function runLlmVerification(
+  targetPath: string,
+  entries: WalkEntry[],
+  staticResult: StaticAnalysisResult,
+  verbose: boolean,
+  model?: string,
+): Promise<{ adjustments: LlmVerificationAdjustments; verification: LlmVerification; costUsd: number; durationMs: number }> {
+  if (verbose) console.log('  Building verification prompt...');
+
+  // Build a focused context: directory tree + sampled file snippets + CLAUDE.md
+  const tree = buildTree(entries, 300, 3);
+  const claudeMd = await readFileSafe(join(targetPath, 'CLAUDE.md'), 3000);
+
+  // Sample a few files to show naming patterns
+  const sourceFiles = getSourceFiles(entries);
+  const sampled = stratifiedSample(sourceFiles, 10);
+  const snippets: string[] = [];
+  for (const file of sampled) {
+    try {
+      const content = await readFile(file.path, 'utf-8');
+      const firstLines = content.split('\n').slice(0, 20).join('\n');
+      snippets.push(`--- ${file.relativePath} (first 20 lines) ---\n${firstLines}`);
+    } catch {}
+  }
+
+  const prompt = `You are verifying the LLM-friendliness of a codebase. Evaluate three aspects on a scale of 1-10.
+
+DIRECTORY TREE (first 300 entries):
+${tree}
+
+${claudeMd ? `CLAUDE.md CONTENT:\n${claudeMd}\n` : 'No CLAUDE.md exists.'}
+
+SAMPLE FILE SNIPPETS:
+${snippets.join('\n\n')}
+
+STATIC ANALYSIS FINDINGS:
+- File naming convention: ${staticResult.naming.dominantConvention} (${staticResult.naming.conventionScore}% consistency)
+- Documentation: ${staticResult.documentation.hasClaudeMd ? 'CLAUDE.md exists' : 'No CLAUDE.md'}, ${staticResult.documentation.hasReadme ? 'README exists' : 'No README'}
+- Comment ratio: ${(staticResult.documentation.inlineCommentRatio * 100).toFixed(1)}%
+
+Evaluate:
+1. **Documentation quality** (1-10): Is the CLAUDE.md/documentation actually helpful and accurate, or is it boilerplate? Does it contain real, actionable guidance?
+2. **Naming clarity** (1-10): Are function/file/variable names clear and self-documenting? Would an LLM understand the codebase from names alone?
+3. **Architecture clarity** (1-10): Can you understand the codebase structure from the directory layout? Is the architecture obvious or confusing?`;
+
+  if (verbose) console.log('  Calling Claude for LLM verification...');
+
+  const { data, result } = await callClaudeWithRetry(
+    () => callClaudeStructured(
+      { prompt, cwd: targetPath, timeout: 60_000, model, tools: '', bare: false },
+      LlmVerificationSchema,
+    ),
+  );
+
+  // Convert 1-10 scores to ±15 adjustments
+  // Score 5 = neutral (0 adjustment), 10 = +15, 1 = -15
+  const scaleAdjustment = (score: number) => Math.round((score - 5) * 3);
+
+  const adjustments: LlmVerificationAdjustments = {
+    documentation: scaleAdjustment(data.documentationQuality.score),
+    naming: scaleAdjustment(data.namingClarity.score),
+    coupling: scaleAdjustment(data.architectureClarity.score),
+  };
+
+  return {
+    adjustments,
+    verification: data,
     costUsd: result.costUsd,
     durationMs: result.durationMs,
   };

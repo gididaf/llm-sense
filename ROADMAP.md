@@ -1,629 +1,657 @@
-# llm-sense Strategic Roadmap
+# llm-sense Roadmap: v0.8.0 → v1.0
 
-> **Goal:** Make llm-sense the definitive tool for measuring and improving codebase LLM-friendliness.
+> **Goal:** Make llm-sense the undisputed best tool for measuring and improving codebase LLM-friendliness.
 > **Core thesis:** Competitors guess with heuristics. We prove it with empirical testing.
+> **Status:** v0.8.0 shipped. All original milestones (CI/CD, auto-fix, static upgrades, reports, DX polish) are complete.
 
 ---
 
-## Competitive Context
+## What's Already Shipped (v0.4.0–v0.8.0)
 
-The "agent readiness" space exploded in early 2026. Key competitors:
-
-| Competitor | Approach | Weakness vs llm-sense |
-|------------|----------|----------------------|
-| **Factory.ai** | 8 pillars, 5 maturity levels (proprietary SaaS) | Static heuristics only, no empirical testing |
-| **@microsoft/agentrc** | 9 pillars, generates AI config files, CI drift detection | Static only, no scoring of actual LLM performance |
-| **@aiready/cli** | 0-100 score, offline, no LLM calls | No empirical testing, no CLAUDE.md content scoring |
-| **@kodus/agent-readiness** | Open-source Factory.ai clone, 39 checks | No empirical testing, DevOps-focused |
-| **agentlinter** | CLAUDE.md linter, 5 dimensions | Config files only, doesn't analyze the codebase |
-| **Repomix** (23K stars) | Packs repos for LLM context | Adjacent tool, doesn't analyze or score |
-
-**Our moat:** llm-sense is the only tool that generates synthetic tasks and runs an LLM against the codebase to measure actual success rates. Every competitor relies purely on static analysis.
-
----
-
-## Design Principles
-
-1. **Prove, don't guess** — Empirical testing is the differentiator. Every feature should reinforce this.
-2. **Lean core** — Keep dependencies minimal (currently 4). No tree-sitter, no heavy AST libs. Prefer clever heuristics over heavy deps.
-3. **Solo-developer pace** — Every milestone must be shippable by one person. No multi-month epics without intermediate value.
-4. **Claude-only** — Deep Claude Code integration is the strength. No multi-model abstraction layer.
-5. **Free breakage** — Pre-1.0 semver. Clean architecture over backward compatibility.
+| Feature | Version | Status |
+|---------|---------|--------|
+| 7-phase pipeline (static + empirical + scoring + report + auto-fix) | v0.3.0 | Done |
+| `--format json/summary`, `--min-score`, exit codes | v0.4.0 | Done |
+| SVG badge generation (`--badge`) | v0.4.0 | Done |
+| Score history tracking + delta display | v0.4.0 | Done |
+| `--fix` auto-fix mode (worktree isolation, re-scoring) | v0.5.0 | Done |
+| `--plan` improvement roadmap | v0.5.0 | Done |
+| Coupling analyzer (dependency graph, fan-in/out, hub files) | v0.6.0 | Done |
+| DevInfra analyzer (CI, tests, linting, type checking) | v0.6.0 | Done |
+| 10-category scoring with rebalanced weights | v0.6.0 | Done |
+| `--compare` repo comparison | v0.7.0 | Done |
+| `--trend` historical trend chart | v0.7.0 | Done |
+| `--interactive` post-analysis menu | v0.8.0 | Done |
+| `--watch` live re-scoring on file changes | v0.8.0 | Done |
+| `llm-sense init` (CLAUDE.md scaffolding) | v0.8.0 | Done |
 
 ---
 
-## Milestones
+## Competitive Landscape (April 2026)
 
-### Milestone 1: CI/CD Foundation (v0.4.0)
+| Competitor | Stars | Approach | What They Have That We Don't |
+|------------|-------|----------|------------------------------|
+| **Factory.ai** | N/A (SaaS) | 8 pillars, 5 maturity levels | Security scoring, monorepo support, maturity levels |
+| **@microsoft/agentrc** | ~709 | 9 pillars, CI drift detection, VS Code ext | Config generation for all tools, VS Code extension |
+| **@aiready/cli** | ? | 0-100 offline score | Semantic duplicate detection, context fragmentation |
+| **@kodus/agent-readiness** | ~30 | 39 checks, radar chart | Interactive web dashboard, monorepo detection |
+| **@rely-ai/caliber** | ? | Config drift detection | Grounding/accuracy checks (do referenced paths exist?) |
+| **agentlinter** | ? | CLAUDE.md 5-dimension scoring | Token heatmap, freshness/staleness detection |
+| **CodeScene** | N/A (SaaS) | Code Health + MCP server | MCP server (AI agents query during coding) |
 
-**Theme:** Make llm-sense embeddable in automated pipelines.
-
-This is the highest-priority work because it unlocks team adoption. No team will adopt a tool they can't run in CI.
-
-#### 1.1 Machine-Readable Output
-
-**New flag: `--format <format>`**
-
-| Format | Output | Use Case |
-|--------|--------|----------|
-| `markdown` (default) | Current report format | Human reading |
-| `json` | Full structured JSON to stdout | CI pipelines, dashboards, custom tooling |
-| `summary` | One-line score + grade to stdout | Quick checks, shell scripts |
-
-**JSON output schema:**
-```typescript
-interface LlmSenseJsonOutput {
-  version: string;                    // "0.4.0"
-  timestamp: string;                  // ISO 8601
-  target: string;                     // absolute path analyzed
-  score: number;                      // 0-100
-  grade: string;                      // A-F
-  previousScore: number | null;       // from history, if available
-  delta: number | null;               // score change
-  categories: Array<{
-    name: string;
-    score: number;
-    weight: number;
-    weighted: number;
-    findings: string[];
-  }>;
-  recommendations: Array<{
-    id: string;
-    title: string;
-    priority: 1 | 2 | 3;
-    estimatedScoreImpact: number;
-    category: string;
-  }>;
-  empirical: {
-    enabled: boolean;
-    tasksRun: number;
-    tasksSucceeded: number;
-    successRate: number;
-    avgTurns: number;
-    avgCost: number;
-    totalCost: number;
-  } | null;
-  meta: {
-    duration: number;                 // total ms
-    phaseDurations: Record<string, number>;
-    claudeModel: string;
-    mode: "full" | "static-only";
-  };
-}
-```
-
-**Implementation:**
-- File: `src/report/jsonOutput.ts` — new module, ~100 lines
-- Modify `src/phases/runner.ts` to branch on `--format` before calling report generator
-- JSON goes to stdout; progress/status messages go to stderr (so `llm-sense --format json > result.json` works cleanly)
-- When `--format json`, suppress all chalk output; only emit the JSON blob at the end
-
-#### 1.2 Threshold Exit Codes
-
-**New flag: `--min-score <number>`**
-
-```bash
-llm-sense --skip-empirical --format json --min-score 70
-# Exit 0 if score >= 70, exit 1 if below
-```
-
-**Exit code spec:**
-| Code | Meaning |
-|------|---------|
-| 0 | Success, score meets threshold (or no threshold set) |
-| 1 | Score below `--min-score` threshold |
-| 2 | Analysis failed (Claude CLI error, path not found, etc.) |
-
-**Implementation:**
-- Modify `src/phases/runner.ts` — after scoring, check `options.minScore` and `process.exit()` accordingly
-- Add `--min-score` to `src/index.ts` commander options
-- Add `minScore` to `CliOptions` in `src/types.ts`
-
-#### 1.3 GitHub Action
-
-**Repository:** `gididaf/llm-sense-action` (separate repo)
-
-```yaml
-# .github/workflows/llm-sense.yml
-name: LLM-Sense Score
-on: [pull_request]
-
-jobs:
-  score:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: gididaf/llm-sense-action@v1
-        with:
-          min-score: 70
-          mode: static          # or "full" for empirical
-          comment: true         # post PR comment with score
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}  # only needed for mode: full
-```
-
-**Action internals:**
-- Thin wrapper: installs Node 18, `npx llm-sense`, parses JSON output
-- PR comment: uses `actions/github-script` to post/update a comment with score breakdown
-- Implements comment deduplication (find existing bot comment, update it instead of creating new)
-- Badge: generates a dynamic badge URL using shields.io endpoint
-
-**PR comment format:**
-```markdown
-## 🔍 LLM-Sense Score: 74/100 (B)
-
-| Category | Score | Δ |
-|----------|-------|---|
-| Documentation | 82 | +3 |
-| File Sizes | 71 | -2 |
-| Structure | 68 | — |
-| ... | ... | ... |
-
-**Top recommendation:** Add architecture overview to CLAUDE.md (+8 pts estimated)
-
-<details>
-<summary>Full report</summary>
-[collapsed JSON/markdown details]
-</details>
-```
-
-#### 1.4 Score Delta Tracking in CI
-
-**Behavior:** When `--format json` and history exists, include `previousScore` and `delta` in output. The GitHub Action uses this to show trend arrows in the PR comment.
-
-**Implementation:**
-- History is already tracked in `.llm-sense/history.json`
-- JSON output already includes `previousScore` and `delta` from the schema above
-- No new code needed beyond 1.1 — this falls out naturally
-
-#### 1.5 Badge Generation
-
-**New flag: `--badge <path>`**
-
-```bash
-llm-sense --skip-empirical --badge badge.svg
-```
-
-Generates a static SVG badge file (no external service dependency):
-```
-[llm-sense | 82/100]  (green if >= 80, yellow if >= 60, red if < 60)
-```
-
-**Implementation:**
-- File: `src/report/badge.ts` — ~50 lines, hardcoded SVG template with color logic
-- No dependencies — inline SVG string generation
-- Users commit the badge to their repo and reference it in README
+**Our moat (still unique):** Empirical testing — no competitor generates synthetic tasks and runs an LLM against the codebase. Academic validation: arXiv 2601.02200 confirms code health directly impacts AI tool effectiveness.
 
 ---
 
-### Milestone 2: Auto-Fix Mode (v0.5.0)
+## Design Principles (Unchanged)
 
-**Theme:** Close the loop — don't just diagnose, fix.
+1. **Prove, don't guess** — Empirical testing is the differentiator
+2. **Lean core** — 4 npm dependencies. No tree-sitter, no heavy libs
+3. **Solo-developer pace** — Every milestone shippable by one person
+4. **Claude-only** — Deep Claude Code integration, no multi-model abstraction
+5. **Free breakage** — Pre-1.0 semver, clean architecture over backward compatibility
 
-#### 2.1 Direct Fix Mode
+---
 
-**New flag: `--fix`**
+## Milestone 6: Close the Gaps (v0.9.0)
 
-```bash
-llm-sense --fix                    # analyze, then apply top recommendation via Claude Code
-llm-sense --fix --fix-count 3     # apply top 3 recommendations
-llm-sense --fix --fix-id rec-002  # apply a specific recommendation by ID
-```
+**Theme:** Steal every good idea from competitors. Match them on static analysis, then beat them with empirical.
+
+### 6.1 Config Drift Detection
+
+**What:** Detect when CLAUDE.md / .cursorrules / AGENTS.md references files, directories, commands, or patterns that no longer exist in the codebase.
+
+**Why:** @rely-ai/caliber and agents-lint both do this. It's a real problem — stale configs actively mislead LLMs. This is low-hanging fruit with high impact.
 
 **How it works:**
+1. Parse config files for path-like references (regex: paths with `/`, file extensions, directory names)
+2. Parse for command references (regex: `npm run ...`, `npx ...`, `make ...`, shell commands)
+3. Check each reference against the actual filesystem and package.json scripts
+4. Compute a "freshness score" (0-100): ratio of valid references to total references
+5. Flag stale references in findings with exact line numbers
 
-```
-1. Run normal analysis (Phase 1-5, or Phase 1 + 5 if --skip-empirical)
-2. Select recommendation(s) to apply
-3. For each recommendation:
-   a. Create an isolated git worktree (reuse existing isolation infrastructure)
-   b. Build a prompt from the recommendation's implementationSteps + context + draftContent
-   c. Call Claude Code in agent mode (callClaude()) in the worktree
-   d. Run llm-sense --skip-empirical on the worktree to get new score
-   e. If score improved: merge worktree changes back to working tree
-   f. If score decreased or unchanged: discard, report failure
-4. Show before/after score comparison
-```
-
-**Safety mechanisms:**
-- Always works in a worktree — never modifies the working tree directly until verified
-- Shows a diff summary before merging back (unless `--yes` flag is passed)
-- Stops on first failure (unless `--fix-continue` is passed)
-- Respects `--max-budget-per-task` and `--max-turns-per-task` for cost control
-- Requires git repo (cannot fix non-git repos — rsync copies are read-only)
+**Scoring integration:**
+- Add `configFreshness` as a sub-metric of Documentation category
+- Stale configs penalize documentation score: -2 pts per stale reference (capped at -20)
+- 100% fresh configs: +5 bonus pts
 
 **Implementation:**
-- File: `src/phases/autoFix.ts` — new module, ~200 lines
-- Reuses `src/core/isolation.ts` for worktree management
-- Reuses `src/core/claude.ts` for Claude Code invocation
-- Reuses recommendation data structures from `src/report/recommendations.ts`
-- Modify `src/phases/runner.ts` to add Phase 7 (auto-fix) after report generation
+- New function `detectConfigDrift()` in `src/analyzers/documentation.ts` (~80 lines)
+- Regex patterns for path extraction: `/src/...`, `./...`, file names with extensions
+- Regex patterns for commands: backtick-wrapped commands, `npm run X`, `make X`
+- `fs.existsSync()` for path validation, package.json scripts check for commands
+- Add `ConfigDriftResult` to types: `{ totalReferences: number, validReferences: number, staleReferences: StaleRef[], freshnessScore: number }`
+
+**Output in report:**
+```
+Config Drift: 3 stale references found in CLAUDE.md
+  Line 42: `src/utils/helpers.ts` — file not found (deleted?)
+  Line 87: `npm run lint` — no "lint" script in package.json
+  Line 103: `src/middleware/` — directory not found
+```
+
+---
+
+### 6.2 Token Budget Heatmap
+
+**What:** Show which files/directories consume the most LLM context budget, helping developers prioritize what to split or exclude.
+
+**Why:** agentlinter has this. For large repos, knowing "src/generated/ burns 40% of your context budget" is immediately actionable.
+
+**How it works:**
+1. Estimate token count per file (chars / 4 as rough estimate — no tokenizer dependency needed)
+2. Aggregate by top-level directory
+3. Rank by token consumption (descending)
+4. Show percentage of total budget consumed
+5. Flag directories consuming >25% as "context hogs"
 
 **Output:**
 ```
-╔══════════════════════════════════════════════════╗
-║  Auto-Fix Results                                ║
-╠══════════════════════════════════════════════════╣
-║  Recommendation: Add CLAUDE.md architecture...   ║
-║  Status: ✓ Applied                               ║
-║  Score: 68 → 76 (+8)                             ║
-║  Files modified: CLAUDE.md                       ║
-╚══════════════════════════════════════════════════╝
-```
-
-#### 2.2 Fix Dry-Run Mode
-
-**New flag: `--fix --dry-run`**
-
-Runs the fix in a worktree, measures the score delta, but does NOT merge changes back. Useful for previewing impact without committing.
-
-**Implementation:** Skip the merge step in 2.1. Show diff + score delta only.
-
-#### 2.3 Progressive Improvement Plan
-
-**New flag: `--plan`**
-
-```bash
-llm-sense --plan
-```
-
-Outputs a numbered step-by-step improvement roadmap, ordered by ROI (estimated score impact / effort), with cumulative projected scores:
-
-```markdown
-## Improvement Plan for my-project (Current: 62/100)
-
-| Step | Action | Est. Impact | Projected Score |
-|------|--------|-------------|-----------------|
-| 1 | Create CLAUDE.md with architecture overview | +12 | 74 |
-| 2 | Split src/server.ts (1847 lines) into modules | +5 | 79 |
-| 3 | Add barrel exports to src/utils/ | +3 | 82 |
-| 4 | Remove dead generated files from src/legacy/ | +2 | 84 |
-
-Run `llm-sense --fix --fix-id <step>` to apply any step.
+Token Budget Heatmap (estimated):
+  src/components/    34,200 tokens  (28%) ████████████░░░░░░  ⚠️ context hog
+  src/services/      18,400 tokens  (15%) ██████░░░░░░░░░░░░
+  src/utils/         12,100 tokens  (10%) ████░░░░░░░░░░░░░░
+  src/types/          8,300 tokens   (7%) ███░░░░░░░░░░░░░░░
+  ...
+  Total: ~122,000 tokens across 847 source files
 ```
 
 **Implementation:**
-- File: extend `src/report/recommendations.ts` with a `generatePlan()` function
-- Sort recommendations by `estimatedScoreImpact` descending
-- Cumulative score is additive estimate (may not be perfectly accurate due to interaction effects — note this in output)
+- New function `buildTokenHeatmap()` in `src/core/fs.ts` (~40 lines)
+- Reuse existing `walkDir` + `countLines` infrastructure
+- Token estimate: `fileContent.length / 4` (good enough for heuristic; avoids tiktoken dependency)
+- Add to report generator as a new section (shown when `--verbose` or always in JSON output)
+- Add `TokenHeatmap` type to types.ts: `{ entries: Array<{ path: string, tokens: number, percentage: number }>, total: number }`
+
+**Scoring integration:**
+- No new scoring category — this is a diagnostic/recommendation tool
+- Feed into recommendations: "Consider splitting src/components/ (28% of context budget) into smaller modules"
 
 ---
 
-### Milestone 3: Static Analysis Upgrades (v0.6.0)
+### 6.3 Security Scoring (Lightweight)
 
-**Theme:** Make `--skip-empirical` mode best-in-class without adding heavy dependencies.
+**What:** Detect basic security anti-patterns that make a codebase riskier for LLM-assisted development. Not a full SAST tool — just the things that matter for AI coding safety.
 
-#### 3.1 Cross-File Dependency Graph
+**Why:** Factory.ai and Kodus both score security. LLMs can accidentally expose secrets or amplify insecure patterns. This is table stakes for enterprise adoption.
 
-**Current state:** `src/analyzers/imports.ts` only tracks `avgImportsPerFile` and `circularDeps`.
+**Checks:**
 
-**Upgraded analysis:**
-- Parse import/require statements with regex (no AST library needed — import syntax is standardized enough)
-- Build an adjacency graph: file → [files it imports]
-- Compute:
-  - **Fan-out score** — avg number of imports per file (high fan-out = hard for LLM to trace)
-  - **Fan-in score** — avg number of files that import each file (high fan-in = risky to modify)
-  - **Hub files** — files with fan-in > 10 (LLM needs to understand these first)
-  - **Orphan files** — files with fan-in = 0 and fan-out = 0 (dead code?)
-  - **Circular dependency count** — already exists, keep it
-  - **Max dependency chain depth** — longest import chain (deep = hard for LLM context)
+| Check | Detection Method | Points Deducted |
+|-------|-----------------|-----------------|
+| `.env` file committed (not in .gitignore) | Check .gitignore for `.env`, check if `.env` exists | -10 |
+| Hardcoded secrets in source | Regex: `(api[_-]?key\|secret\|password\|token)\s*[:=]\s*['"][^'"]{8,}` | -5 per file (cap -20) |
+| No `.gitignore` | `fs.existsSync('.gitignore')` | -5 |
+| Sensitive files tracked | Check if `*.pem`, `*.key`, `credentials.*`, `secrets.*` exist in tree | -5 per file (cap -15) |
+| Dependency lockfile missing | No lockfile but has dependency file | -5 |
 
-**New scoring dimension:** Replace current minimal imports scoring with a "Coupling" category or fold into "Modularity".
+**Baseline:** 100 pts, subtract penalties. Floor at 0.
 
 **Implementation:**
-- File: rewrite `src/analyzers/imports.ts` — ~150 lines
-- Regex patterns for: `import ... from '...'`, `require('...')`, `from ... import ...` (Python), `use ...` (Rust)
-- Resolve relative paths to build the graph; ignore node_modules/external deps
-- No new dependencies — pure regex + path resolution
+- New file: `src/analyzers/security.ts` (~100 lines)
+- Pure filesystem checks + regex on sampled files (use `stratifiedSample()` to avoid reading entire repo)
+- Add `SecurityResult` to types.ts
+- Add to `StaticAnalysisResult`
+- Call from `staticAnalysis.ts`
+- New scoring category: "Security" with weight allocation (see 6.7)
 
-#### 3.2 Multi-Format AI Config Scoring
+---
 
-**Current state:** Only scores CLAUDE.md across 8 semantic sections.
+### 6.4 Complete Multi-AI-Config Init
 
-**Add support for:**
-| File | Format | What to score |
-|------|--------|---------------|
-| `.cursorrules` | Free-form text | Has project context? Has coding conventions? Has file structure hints? |
-| `.github/copilot-instructions.md` | Markdown | Same 8-section analysis as CLAUDE.md |
-| `AGENTS.md` | Markdown | Same 8-section analysis |
-| `.clinerules` | Free-form text | Similar to .cursorrules |
-| `.claude/settings.json` | JSON | Has allowed/denied tools? Has custom permissions? |
+**What:** Finish the `init` command to generate config files for all major AI coding tools, not just CLAUDE.md.
 
-**Scoring approach:**
-- Each config file detected adds points (existence bonus)
-- Content quality scored using the same keyword-depth algorithm as CLAUDE.md
-- Cross-file consistency check: do different config files agree on conventions?
-- New sub-metric: "AI Config Coverage" — what % of major AI tools have config files?
+**Why:** @microsoft/agentrc and rulesync both do this. Our init command currently only generates CLAUDE.md — the types and detection for other tools exist but the generation doesn't.
 
-**Implementation:**
-- Extend `src/analyzers/documentation.ts` — add `scoreAiConfigFile()` generic function
-- Reuse the 8-section keyword analysis with tool-specific keyword adjustments
-- Add to documentation category score (increase max points from 100 to account for multi-file bonus)
+**Files to generate:**
 
-#### 3.3 Lightweight DevOps Checks
+| File | When to generate | Content |
+|------|-----------------|---------|
+| `CLAUDE.md` | Always | Full 8-section template (already works) |
+| `.cursorrules` | Always (Cursor is dominant) | Project context, coding conventions, file structure hints |
+| `.github/copilot-instructions.md` | If `.github/` dir exists | Same content as CLAUDE.md, adapted for Copilot format |
+| `AGENTS.md` | If monorepo or large project | Module-level instructions for autonomous agents |
 
-Competitors (Factory.ai, agentrc) score CI/CD, testing, build systems. Add lightweight detection without heavy analysis:
-
-| Check | How to detect | Points |
-|-------|--------------|--------|
-| Has CI config? | Glob for `.github/workflows/*.yml`, `.gitlab-ci.yml`, `Jenkinsfile` | 5 |
-| Has test command? | Check `package.json` scripts.test, `Makefile` test target, `pytest.ini` | 5 |
-| Has linter config? | Glob for `.eslintrc*`, `.prettierrc*`, `pyproject.toml [tool.ruff]` | 3 |
-| Has pre-commit hooks? | Check `.husky/`, `.pre-commit-config.yaml` | 3 |
-| Has type checking? | `tsconfig.json` strict mode, `mypy.ini`, `pyright` config | 4 |
-
-**New scoring category: "Developer Infrastructure"** (replaces or supplements "Context Efficiency")
+**Content synthesis:**
+- Reuse Phase 1 static analysis results to populate templates
+- Detect tech stack (TypeScript/Python/Go/Rust/etc.) from file extensions
+- Detect framework (React/Next.js/Express/Django/etc.) from dependency files
+- Detect testing framework from devInfra analyzer
+- Fill in build/run/test commands from package.json/Makefile
 
 **Implementation:**
-- New file: `src/analyzers/devInfra.ts` — ~80 lines, pure glob/file-existence checks
-- Add to `StaticAnalysisResult` in types.ts
-- Add scoring function in `scoring.ts`
-- Rebalance weights (see weight rebalancing section below)
+- Extend `src/commands/init.ts` — add generators for each file type (~100 lines)
+- Add templates to `src/constants.ts` for each config file format
+- Add `--init-all` flag to generate all files at once (default: prompt which ones)
+- Skip files that already exist (warn user, offer `--overwrite`)
 
-#### 3.4 Weight Rebalancing
+---
 
-With new categories and improved analyzers, rebalance scoring weights:
+### 6.5 Populate estimatedEffort and dependsOn in Recommendations
 
-**Empirical mode (v0.6.0):**
+**What:** Fill in the two recommendation fields that are defined in the type system but never populated.
+
+**Why:** These fields exist in `ExecutableRecommendation` but are always `undefined`. The `--plan` output would be much more useful with effort estimates, and `--fix` could respect dependencies.
+
+**Effort estimation heuristic:**
+
+| Recommendation Type | Default Effort |
+|---------------------|---------------|
+| Create CLAUDE.md from scratch | 30min |
+| Add missing CLAUDE.md section | 5min |
+| Add inline comments | 2hr |
+| Split file >1000 lines | 30min per file |
+| Split file >500 lines | 5min per file |
+| Add barrel exports | 5min |
+| Remove generated/dead files | 5min |
+| Add CI config | 30min |
+| Add test command | 30min |
+| Add linter | 30min |
+| Fix naming inconsistency | 5min per file |
+
+**Dependency rules:**
+- "Add test command" must precede "Add CI config" (CI needs tests to run)
+- "Create CLAUDE.md" must precede "Add CLAUDE.md sections"
+- "Add linter" should precede "Fix naming inconsistency" (linter enforces conventions)
+
+**Implementation:**
+- Modify `src/report/recommendations.ts` — add effort lookup table + dependency graph (~50 lines)
+- Update `generatePlan()` to sort by effort-adjusted ROI: `impact / effortMinutes`
+- Update `--fix` in `autoFix.ts` to respect `dependsOn` ordering
+
+---
+
+### 6.6 Deeper AI Config File Scoring
+
+**What:** Upgrade the multi-AI-config scoring from basic existence detection to actual content quality analysis.
+
+**Why:** The types for `aiConfigScores` exist but the implementation is minimal. agentlinter scores CLAUDE.md across 5 dimensions — we should score all config files across our 8 sections.
+
+**Approach:**
+- Apply the same 8-section keyword analysis used for CLAUDE.md to:
+  - `.cursorrules` (free-form text — look for same keywords)
+  - `.github/copilot-instructions.md` (markdown — identical analysis)
+  - `AGENTS.md` (markdown — identical analysis)
+  - `.clinerules` (free-form text — same as .cursorrules)
+- New sub-metric: "AI Config Coverage" — how many major tools have config files?
+  - 0 tools: 0 pts
+  - 1 tool: 3 pts
+  - 2 tools: 5 pts
+  - 3+ tools: 8 pts
+- Cross-file consistency check: do different config files mention the same tech stack, conventions, and commands? Inconsistency penalty: -2 pts per contradiction found
+
+**Implementation:**
+- Extract `scoreConfigSections()` from CLAUDE.md-specific code in `src/analyzers/documentation.ts` into a generic function
+- Call it for each detected config file
+- Add `aiConfigCoverage` and `aiConfigConsistency` to documentation sub-scores
+- Adjust documentation category max points to accommodate (~15 lines changed)
+
+---
+
+### 6.7 Weight Rebalancing for v0.9.0
+
+Add Security category and adjust weights:
+
+**Empirical mode:**
 ```
-documentation:      0.18  (was 0.20, slightly reduced as AI config scoring adds depth)
-taskCompletion:     0.20  (unchanged — still the key differentiator)
-fileSizes:          0.12  (was 0.15)
-structure:          0.08  (was 0.10)
-modularity:         0.10  (unchanged)
-contextEfficiency:  0.08  (was 0.10)
+documentation:      0.17  (was 0.18 — AI config scoring adds depth within this category)
+taskCompletion:     0.18  (was 0.20 — still dominant, slightly reduced)
+fileSizes:          0.10  (was 0.12)
+structure:          0.07  (was 0.08)
+modularity:         0.09  (was 0.10)
+contextEfficiency:  0.07  (was 0.08)
 tokenEfficiency:    0.10  (unchanged)
-naming:             0.04  (was 0.05)
-devInfra:           0.05  (NEW)
-coupling:           0.05  (NEW — from imports upgrade)
+naming:             0.04  (unchanged)
+devInfra:           0.05  (unchanged)
+coupling:           0.05  (unchanged)
+security:           0.08  (NEW)
 ```
 
-**Static-only mode (v0.6.0):**
+**Static-only mode:**
 ```
-documentation:      0.25  (was 0.28)
-fileSizes:          0.17  (was 0.20)
-structure:          0.10  (was 0.12)
-modularity:         0.13  (was 0.15)
-contextEfficiency:  0.13  (was 0.17)
-naming:             0.07  (was 0.08)
-devInfra:           0.08  (NEW)
-coupling:           0.07  (NEW)
+documentation:      0.22  (was 0.25)
+fileSizes:          0.15  (was 0.17)
+structure:          0.09  (was 0.10)
+modularity:         0.11  (was 0.13)
+contextEfficiency:  0.10  (was 0.13)
+naming:             0.06  (was 0.07)
+devInfra:           0.07  (was 0.08)
+coupling:           0.06  (was 0.07)
+security:           0.14  (NEW — higher weight in static mode since no empirical validation)
 ```
+
+**History compatibility:** Add `scoringVersion: "0.9.0"` to `HistoryEntry`. Trend chart shows version boundaries. Only compare scores from same scoring version.
 
 ---
 
-### Milestone 4: Report & Recommendations Overhaul (v0.7.0)
+## Milestone 7: Distribution & Ecosystem (v0.10.0)
 
-**Theme:** Make reports the best artifact in the space.
+**Theme:** Put llm-sense where developers already are.
 
-#### 4.1 Comparative Reports
+### 7.1 GitHub Action (Published)
 
-**New flag: `--compare <path>`**
+**What:** A real, published GitHub Action in `gididaf/llm-sense-action` that teams can drop into any repo.
 
-```bash
-llm-sense --compare /path/to/other-repo
+**Why:** This is the #1 missing piece for team adoption. agentrc and Kodus both have CI integration. We have the JSON output and exit codes — we just need the Action wrapper.
+
+**Action inputs:**
+
+```yaml
+inputs:
+  mode:
+    description: "Analysis mode: 'static' (fast, free) or 'full' (empirical, needs API key)"
+    default: "static"
+  min-score:
+    description: "Minimum passing score (0-100). PR check fails if below."
+    default: "0"
+  comment:
+    description: "Post score as PR comment"
+    default: "true"
+  badge:
+    description: "Generate and commit badge SVG"
+    default: "false"
+  path:
+    description: "Path to analyze (relative to repo root)"
+    default: "."
 ```
 
-Runs analysis on both repos and produces a side-by-side comparison:
+**Action implementation:**
 
+```yaml
+# action.yml
+name: 'LLM-Sense'
+description: 'Analyze codebase LLM-friendliness'
+branding:
+  icon: 'cpu'
+  color: 'blue'
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    - run: npx llm-sense@latest --format json --min-score ${{ inputs.min-score }} --path ${{ inputs.path }} ${{ inputs.mode == 'static' && '--skip-empirical' || '' }} > llm-sense-result.json
+      shell: bash
+    - uses: actions/github-script@v7
+      if: inputs.comment == 'true' && github.event_name == 'pull_request'
+      with:
+        script: |
+          // Read result, format PR comment, post/update
+```
+
+**PR comment format:**
 ```markdown
-## Comparison: my-api vs my-frontend
+## LLM-Sense: 74/100 (B)  [+3 since last run]
 
-| Category | my-api | my-frontend | Winner |
-|----------|--------|-------------|--------|
-| Overall | 78 | 64 | my-api |
-| Documentation | 85 | 42 | my-api |
-| File Sizes | 72 | 81 | my-frontend |
-| ... | ... | ... | ... |
+| Category | Score | Weight |
+|----------|-------|--------|
+| Documentation | 82 | 17% |
+| Task Completion | — | (static mode) |
+| File Sizes | 71 | 10% |
+| Structure | 68 | 7% |
+| Modularity | 75 | 9% |
+| Context Efficiency | 88 | 7% |
+| Naming | 92 | 4% |
+| Coupling | 65 | 5% |
+| Dev Infrastructure | 80 | 5% |
+| Security | 90 | 8% |
+
+**Top recommendation:** Add architecture overview to CLAUDE.md (+8 pts est.)
+
+<details><summary>Full JSON</summary>
+
+```json
+{ ... }
 ```
 
-**Use case:** "Which of our repos should we prioritize for AI tool adoption?"
-
-**Implementation:**
-- Run the pipeline twice (sequential to avoid resource contention)
-- File: `src/report/comparison.ts` — ~100 lines
-- Supports both `--format markdown` and `--format json`
-
-#### 4.2 Historical Trend Report
-
-**New flag: `--trend`**
-
-```bash
-llm-sense --trend
+</details>
 ```
 
-Reads `.llm-sense/history.json` and produces a trend visualization:
-
-```
-Score History for my-project
-────────────────────────────
-100 │
- 90 │
- 80 │          ╭──●──●
- 70 │     ╭──●─╯
- 60 │  ●──╯
- 50 │──╯
-    └──────────────────────
-     Jan  Feb  Mar  Apr
-```
-
-**Implementation:**
-- File: `src/report/trend.ts` — ~80 lines
-- ASCII chart using simple string manipulation (no charting library)
-- Also output as JSON array when `--format json`
-
-#### 4.3 Recommendation Quality Improvements
-
-Current recommendations are generated from scoring gaps. Improve them:
-
-- **Specificity:** Instead of "split large files", name the exact files and suggest specific split points based on Phase 2 codebase understanding
-- **Draft content:** For CLAUDE.md recommendations, generate a complete draft using Phase 2's `CodebaseUnderstanding` data (architecture, tech stack, conventions, gotchas)
-- **Effort estimation:** Add `estimatedEffort: "5min" | "30min" | "2hr" | "half-day"` to each recommendation
-- **Dependencies:** Some recommendations depend on others (e.g., "add test command" before "add CI"). Model this with a `dependsOn` field
+**Deliverables:**
+- New repo: `gididaf/llm-sense-action`
+- `action.yml` — composite action definition (~80 lines)
+- `comment.js` — PR comment builder (~60 lines)
+- `README.md` — usage docs with examples
+- Publish to GitHub Marketplace
 
 ---
 
-### Milestone 5: DX & Ecosystem Polish (v0.8.0)
+### 7.2 MCP Server Mode
 
-**Theme:** Make it delightful to use and easy to adopt.
+**What:** Run llm-sense as an MCP (Model Context Protocol) server that AI coding agents can query in real-time while working on a codebase.
 
-#### 5.1 Interactive Mode
+**Why:** CodeScene has an MCP server (31 stars). MCP is the emerging standard for AI tool integration. If Claude Code / Cursor can query llm-sense during coding sessions, we become infrastructure, not just a one-shot tool.
 
-**New flag: `--interactive` (or just `llm-sense -i`)**
+**MCP tools exposed:**
 
-After analysis, drops into an interactive menu:
+| Tool | Description | Use Case |
+|------|-------------|----------|
+| `get_score` | Returns current overall score + category breakdown | Agent checks score before/after changes |
+| `get_recommendations` | Returns top N recommendations | Agent decides what to work on |
+| `check_file` | Scores a single file (size, naming, comments) | Agent checks if a file it wrote meets standards |
+| `check_drift` | Validates config file references | Agent verifies CLAUDE.md accuracy after edits |
+| `get_heatmap` | Returns token budget heatmap | Agent knows which areas are context-heavy |
+
+**Implementation approach:**
+- New file: `src/mcp/server.ts` (~150 lines)
+- Use stdin/stdout JSON-RPC (MCP protocol) — no HTTP server dependency
+- Reuse existing analyzers for each tool
+- Cache Phase 1 results; invalidate on file changes (reuse watch infrastructure)
+- Entry point: `llm-sense serve` subcommand
+
+**Configuration for Claude Code:**
+```json
+// .claude/mcp_servers.json
+{
+  "llm-sense": {
+    "command": "npx",
+    "args": ["llm-sense", "serve"],
+    "cwd": "."
+  }
+}
 ```
-Analysis complete: 72/100 (B-)
 
-What would you like to do?
-  [1] View full report
-  [2] Apply top recommendation (+12 pts estimated)
-  [3] View improvement plan
-  [4] Compare with another repo
-  [5] Export JSON
-  [q] Quit
-```
+**No new dependencies:** MCP protocol is simple JSON-RPC over stdio. Parse/emit JSON manually (~30 lines of protocol handling).
 
-**Implementation:**
-- Use Node.js built-in `readline` — no new dependencies
-- File: `src/interactive.ts` — ~120 lines
+---
 
-#### 5.2 Watch Mode
+### 7.3 Monorepo Support
 
-**New flag: `--watch`**
+**What:** Score individual packages/modules within a monorepo independently, then produce an aggregate score.
 
+**Why:** Factory.ai and Kodus both support monorepos. Large orgs (the kind that drive team adoption) almost always use monorepos.
+
+**Detection:** A repo is a monorepo if it has:
+- `packages/` or `apps/` directory with multiple subdirectories containing `package.json`
+- `pnpm-workspace.yaml` or `lerna.json` or `turbo.json`
+- Multiple `go.mod` files at different depths
+
+**Behavior:**
 ```bash
-llm-sense --watch --skip-empirical
+llm-sense --path /path/to/monorepo
+# Detects monorepo, asks: "Analyze entire repo or individual packages?"
+# Or: llm-sense --path /path/to/monorepo --monorepo
+# Forces per-package analysis
 ```
 
-Watches for file changes and re-runs static analysis, showing live score updates. Useful during active development: "I'm improving my CLAUDE.md — show me the score going up in real-time."
+**Output:**
+```
+Monorepo Analysis: my-platform
 
-**Implementation:**
-- Use Node.js built-in `fs.watch` — no new dependencies
-- Debounce re-analysis (500ms after last change)
-- Only re-run Phase 1 + Phase 5 (static analysis + scoring)
-- Show compact one-line output: `[12:34:56] Score: 74/100 (B) — Documentation: 85, Structure: 68...`
-
-#### 5.3 Init Command
-
-**New command: `llm-sense init`**
-
-Scaffolds AI config files for a repo based on quick static analysis:
-
-```bash
-llm-sense init
-# Analyzes repo, generates:
-# - CLAUDE.md (populated with detected architecture, tech stack, patterns)
-# - .cursorrules (if Cursor detected)
-# - .github/copilot-instructions.md (if GitHub Copilot detected)
+| Package | Score | Grade | Top Issue |
+|---------|-------|-------|-----------|
+| packages/api | 78 | B | Missing CLAUDE.md |
+| packages/web | 65 | C | 3 files >1000 lines |
+| packages/shared | 82 | B | Low test coverage |
+| packages/cli | 71 | B | Naming inconsistency |
+| **Aggregate** | **74** | **B** | |
 ```
 
 **Implementation:**
-- Run Phase 1 (static analysis) only
-- Use detected patterns to populate templates
-- File: `src/commands/init.ts` — ~150 lines
-- Templates stored as string literals in `src/constants.ts`
+- New file: `src/core/monorepo.ts` (~60 lines) — detection + package discovery
+- Modify `src/phases/runner.ts` — if monorepo detected, loop over packages
+- Each package scored independently using existing pipeline
+- Aggregate score: weighted average by file count (larger packages matter more)
+- Add `--monorepo` flag to force per-package analysis
+- Add `MonorepoResult` to types.ts
+
+---
+
+## Milestone 8: Intelligence Layer (v1.0.0)
+
+**Theme:** Go beyond what static analysis can see. Use the LLM to understand things heuristics can't.
+
+### 8.1 Semantic Duplicate Detection
+
+**What:** Find files that serve the same purpose or contain overlapping logic, even if they have different names and implementations.
+
+**Why:** @aiready/cli does this. Duplicated logic confuses LLMs (they don't know which version to use/modify). It's also a code quality signal.
+
+**Approach (no new dependencies):**
+1. Group files by similar size (within 30% of each other)
+2. For each group, compute a simple "content fingerprint": sorted set of exported function/class names (regex-extracted)
+3. Files with >60% fingerprint overlap are flagged as potential duplicates
+4. For empirical mode: include duplicate pairs in the Phase 2 prompt and ask Claude to confirm which are true duplicates
+
+**Implementation:**
+- New file: `src/analyzers/duplicates.ts` (~100 lines)
+- Extract exports via regex: `export (function|class|const|type|interface) (\w+)`
+- Jaccard similarity on export name sets
+- Add to `StaticAnalysisResult`
+- Feed confirmed duplicates into recommendations: "Consolidate X and Y into a single module"
+
+---
+
+### 8.2 Context Fragmentation Score
+
+**What:** Measure how scattered related logic is across the codebase. High fragmentation means an LLM needs more context to understand a feature.
+
+**Why:** @aiready/cli scores this. It directly predicts how many files an LLM needs to read to complete a task.
+
+**Approach:**
+1. Use the existing dependency graph (coupling analyzer) to identify clusters
+2. A "cluster" is a set of files that import each other heavily (connected component with edge weight > 1)
+3. Fragmentation = ratio of inter-cluster imports to intra-cluster imports
+4. High fragmentation (lots of cross-cluster imports) = bad for LLMs
+5. Low fragmentation (most imports within clusters) = good for LLMs
+
+**Scoring:**
+- Fold into existing "Coupling" category as a sub-metric
+- Fragmentation ratio < 0.3: +10 bonus
+- Fragmentation ratio > 0.6: -10 penalty
+
+**Implementation:**
+- Add `computeFragmentation()` to `src/analyzers/imports.ts` (~50 lines)
+- Uses existing adjacency graph — just needs connected component detection (BFS, ~20 lines)
+- No new scoring category — enhances Coupling
+
+---
+
+### 8.3 LLM-Verified Scoring
+
+**What:** In empirical mode, use the LLM to validate/adjust static analysis findings. Static heuristics can miss nuance — the LLM can catch what regex can't.
+
+**Why:** This turns our empirical advantage into an unfair advantage. No competitor can do this because they don't invoke LLMs.
+
+**What the LLM verifies:**
+1. **Documentation quality:** "Is this CLAUDE.md actually helpful, or is it boilerplate?" (heuristic might score boilerplate highly if it has the right keywords)
+2. **Naming assessment:** "Are these function/file names clear and descriptive?" (regex can check convention consistency but not semantic clarity)
+3. **Architecture clarity:** "Can you understand the codebase structure from the directory layout alone?" (score 1-10)
+
+**Implementation:**
+- Add an optional "LLM verification" sub-phase to Phase 2
+- Send a focused prompt with sampled files + directory tree
+- Parse structured response (Zod schema) with adjustment factors
+- Apply adjustments: each LLM-verified category can shift ±15 points from static score
+- Only runs in full mode (not `--skip-empirical`)
+- Cost: ~$0.02 per verification (single Claude call with short prompt)
+
+---
+
+### 8.4 Incremental Analysis
+
+**What:** Only re-analyze files that changed since the last run. Dramatically speeds up watch mode and CI.
+
+**Why:** Full analysis takes ~300ms for static, but for large repos it's 1-3 seconds. In CI, running on every commit matters. In watch mode, re-analyzing unchanged files is waste.
+
+**Approach:**
+1. After each run, save a manifest: `{ filePath: mtime }` in `.llm-sense/manifest.json`
+2. On next run, compare mtimes. Only re-walk changed/new/deleted files
+3. Merge with cached results for unchanged files
+4. Invalidate dependent scores (e.g., if a file in src/utils/ changed, re-run coupling analysis for that cluster)
+
+**Implementation:**
+- New file: `src/core/cache.ts` (~80 lines)
+- Manifest: `Record<string, number>` (path → mtime)
+- `getChangedFiles(manifest, walkEntries)` returns delta
+- Modify `staticAnalysis.ts` to accept optional cached results
+- Add `--no-cache` flag to force full re-analysis
 
 ---
 
 ## Version Plan Summary
 
-| Version | Codename | Key Features | Breaking Changes |
-|---------|----------|-------------|------------------|
-| **v0.4.0** | Pipeline | `--format json`, `--min-score`, GitHub Action, badges | Output to stderr when `--format json` |
-| **v0.5.0** | Healer | `--fix`, `--fix --dry-run`, `--plan` | New Phase 7 in pipeline |
-| **v0.6.0** | Analyst | Dependency graph, multi-AI-config scoring, dev infra checks | Scoring weight rebalance, new categories |
-| **v0.7.0** | Reporter | `--compare`, `--trend`, better recommendations | Recommendation schema changes |
-| **v0.8.0** | Polish | Interactive mode, `--watch`, `llm-sense init` | New subcommand structure |
+| Version | Codename | Key Features | Theme |
+|---------|----------|-------------|-------|
+| **v0.9.0** | Fortress | Config drift, token heatmap, security scoring, complete init, recommendation effort/deps, deeper AI config scoring | Close competitive gaps |
+| **v0.10.0** | Ecosystem | GitHub Action, MCP server, monorepo support | Be everywhere developers are |
+| **v1.0.0** | Intelligence | Semantic duplicates, context fragmentation, LLM-verified scoring, incremental analysis | Unfair advantages no one can match |
 
 ---
 
 ## File Impact Map
 
-New files to create:
+### New files:
 
 ```
 src/
-├── commands/
-│   └── init.ts                    # v0.8.0: init command
-├── report/
-│   ├── jsonOutput.ts              # v0.4.0: JSON formatter
-│   ├── badge.ts                   # v0.4.0: SVG badge generator
-│   ├── comparison.ts              # v0.7.0: side-by-side report
-│   └── trend.ts                   # v0.7.0: historical trend chart
 ├── analyzers/
-│   └── devInfra.ts                # v0.6.0: CI/linter/test detection
-├── phases/
-│   └── autoFix.ts                 # v0.5.0: auto-fix orchestrator
-└── interactive.ts                 # v0.8.0: interactive mode
+│   ├── security.ts              # v0.9.0: secret detection, .env checks
+│   └── duplicates.ts            # v1.0.0: semantic duplicate detection
+├── mcp/
+│   └── server.ts                # v0.10.0: MCP server for AI tool integration
+└── core/
+    ├── monorepo.ts              # v0.10.0: monorepo detection + package discovery
+    └── cache.ts                 # v1.0.0: incremental analysis cache
+
+# Separate repo:
+gididaf/llm-sense-action/
+├── action.yml                   # v0.10.0: GitHub Action definition
+├── comment.js                   # v0.10.0: PR comment builder
+└── README.md                    # v0.10.0: Action documentation
 ```
 
-Files to modify:
+### Modified files:
 
 ```
-src/index.ts                       # Every milestone: new CLI flags
-src/types.ts                       # Every milestone: new types
-src/constants.ts                   # v0.6.0: weight rebalance, new constants
-src/phases/runner.ts               # v0.4.0: format branching; v0.5.0: Phase 7
-src/phases/scoring.ts              # v0.6.0: new categories + weights
-src/analyzers/imports.ts           # v0.6.0: dependency graph rewrite
-src/analyzers/documentation.ts     # v0.6.0: multi-format AI config scoring
-src/report/generator.ts            # v0.7.0: recommendation improvements
-src/report/recommendations.ts      # v0.5.0: plan generation; v0.7.0: quality upgrade
+src/index.ts                     # v0.9.0: --no-cache flag; v0.10.0: `serve` + `--monorepo`
+src/types.ts                     # Every version: new result types
+src/constants.ts                 # v0.9.0: weight rebalance + security weights
+src/phases/runner.ts             # v0.10.0: monorepo loop; v1.0.0: incremental path
+src/phases/scoring.ts            # v0.9.0: security category; v1.0.0: fragmentation sub-metric
+src/phases/staticAnalysis.ts     # v0.9.0: security analyzer; v1.0.0: duplicates + cache
+src/phases/llmUnderstanding.ts   # v1.0.0: LLM verification sub-phase
+src/analyzers/documentation.ts   # v0.9.0: drift detection + deeper AI config scoring
+src/analyzers/imports.ts         # v1.0.0: fragmentation scoring
+src/commands/init.ts             # v0.9.0: multi-tool config generation
+src/report/recommendations.ts    # v0.9.0: effort + dependency population
+src/report/generator.ts          # v0.9.0: token heatmap section; v0.10.0: monorepo report
+src/core/fs.ts                   # v0.9.0: buildTokenHeatmap()
+src/core/history.ts              # v0.9.0: scoringVersion field
 ```
 
 ---
 
-## Implementation Notes
+## No New Dependencies Policy (Continued)
 
-### No New Dependencies Policy
+| Feature | Approach |
+|---------|----------|
+| Config drift detection | Regex path extraction + `fs.existsSync()` |
+| Token heatmap | `content.length / 4` (chars-to-tokens estimate) |
+| Security checks | Regex for secret patterns + `.gitignore` parsing |
+| MCP server | JSON-RPC over stdin/stdout (manual parsing, ~30 lines) |
+| Monorepo detection | Glob for `packages/*/package.json` + workspace file checks |
+| Semantic duplicates | Export name extraction via regex + Jaccard similarity |
+| Context fragmentation | BFS connected components on existing dependency graph |
+| Incremental cache | `fs.statSync().mtimeMs` + JSON manifest |
 
-Every feature in this roadmap is achievable with zero new npm dependencies:
+**Total dependency count after v1.0.0: still 4** (chalk, commander, zod, zod-to-json-schema)
 
-| Feature | Approach | Why no library needed |
-|---------|----------|----------------------|
-| JSON output | `JSON.stringify()` | Built-in |
-| SVG badges | Hardcoded SVG template string | ~20 lines of SVG |
-| GitHub Action | Shell script + `npx` | Actions are YAML + bash |
-| Import graph | Regex on import statements | Import syntax is standardized |
-| ASCII trend chart | String manipulation | ~40 lines |
-| Interactive mode | `readline` | Built-in Node.js |
-| Watch mode | `fs.watch` | Built-in Node.js |
-| DevOps detection | `fs.existsSync` + glob | Already have glob via walkDir |
+---
 
-### Testing Strategy
-
-No automated test suite exists yet. For each milestone:
-
-1. Manual testing against the 5 DreamVPS repos (varying sizes)
-2. Verify `--format json` output parses correctly with `jq`
-3. Test the GitHub Action in a real PR workflow on a test repo
-4. For auto-fix: verify worktree isolation never corrupts working tree
-5. For scoring changes: compare before/after scores on all 5 repos to validate weight rebalancing
-
-### Risk Mitigations
+## Risk Mitigations
 
 | Risk | Mitigation |
 |------|-----------|
-| Auto-fix corrupts working tree | Always operate in worktree; require git repo; show diff before merge |
-| Scoring weight changes invalidate historical scores | Store scoring version in history.json; only compare scores from same version |
-| GitHub Action exposes API keys | Document that `ANTHROPIC_API_KEY` should be a repo secret; static mode needs no key |
-| Import regex misparses edge cases | Target 90% accuracy, not 100%. Unusual import patterns are rare and won't break scoring |
-| PR comment bot is noisy | Make `comment: true` opt-in (not default) in GitHub Action config |
+| Security regex has false positives (matches test fixtures, examples) | Skip files in test directories; require 8+ char values; ignore comments |
+| MCP protocol changes | Pin to MCP spec version; protocol is simple enough to adapt quickly |
+| Monorepo analysis too slow | Run packages in parallel (reuse concurrency pool); cache per-package results |
+| Config drift regex over-extracts | Only flag references that look like paths (contain `/` or `.`) and fail existence check |
+| LLM-verified scoring adds cost | Optional, only in full mode. Single call ~$0.02. Document cost in `--verbose` output |
+| Incremental cache stale | Always full-reanalyze on scoring version change. `--no-cache` escape hatch |
+| Semantic duplicate false positives | Require >60% export overlap AND similar file size. LLM confirmation in full mode |
 
 ---
 
-## Success Metrics
+## Success Metrics for v1.0.0
 
-After full roadmap execution, llm-sense should be able to:
+After the full roadmap, llm-sense should:
 
-- [x] Score any codebase 0-100 with static analysis (exists today)
-- [x] Empirically test LLM coding ability on the codebase (exists today)
-- [ ] Run in CI and block PRs that degrade LLM-friendliness
-- [ ] Auto-fix the top issues and prove the improvement
-- [ ] Compare repos side-by-side
-- [ ] Show score trends over time
-- [ ] Scaffold AI config files for new repos
-- [ ] Work interactively for live development feedback
+- [x] Score any codebase 0-100 with static analysis
+- [x] Empirically test LLM coding ability on the codebase
+- [x] Auto-fix issues and prove the improvement
+- [x] Compare repos and show trends over time
+- [x] Work interactively with live feedback
+- [x] **Detect stale config file references** (beats caliber, agents-lint)
+- [x] **Show token budget heatmap** (beats agentlinter)
+- [x] **Score security posture** (matches Factory.ai, Kodus)
+- [x] **Generate config files for all AI tools** (matches agentrc, rulesync)
+- [x] **Run as GitHub Action with PR comments** (matches agentrc, Kodus)
+- [x] **Serve as MCP server for real-time AI integration** (matches CodeScene)
+- [x] **Analyze monorepos per-package** (matches Factory.ai, Kodus)
+- [x] **Detect semantic duplicates** (beats @aiready/cli)
+- [x] **Score context fragmentation** (beats @aiready/cli)
+- [x] **LLM-verify static findings** (unique — no competitor can do this)
+- [x] **Incremental analysis for speed** (unique for this tool class)
 
-**The end state:** A developer runs `npx llm-sense` on day one, gets a score, runs `llm-sense --fix` to improve it, adds the GitHub Action to their CI, and watches their LLM-friendliness score climb over time. No competitor offers this full loop.
+**The v1.0 end state:** llm-sense matches or beats every competitor on static analysis, then leaves them behind with empirical testing, LLM-verified scoring, and MCP integration. The only tool that proves your codebase works with AI, fixes what doesn't, and integrates into your workflow at every touchpoint.

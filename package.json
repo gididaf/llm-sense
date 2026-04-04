@@ -1,6 +1,6 @@
 {
   "name": "llm-sense",
-  "version": "0.8.0",
+  "version": "1.0.0",
   "description": "Analyze how LLM-friendly a codebase is — static analysis + empirical testing with Claude Code",
   "main": "dist/index.js",
   "bin": {

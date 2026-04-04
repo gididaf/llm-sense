@@ -4,11 +4,11 @@
 
 A 7-phase CLI pipeline that analyzes codebase LLM-friendliness:
 
-1. **Static Analysis** — 9 analyzers scan files/dirs without LLM calls (free, ~300ms)
+1. **Static Analysis** — 10 analyzers scan files/dirs without LLM calls (free, ~400ms)
 2. **LLM Understanding** — Claude Code CLI with `--json-schema` produces structured codebase profile
 3. **Task Generation** — Claude generates synthetic bugs + features tailored to the codebase
 4. **Empirical Testing** — Tasks run in parallel across isolated git worktrees, with correctness verification
-5. **Scoring** — Weighted aggregation across 10 categories → 0-100 score
+5. **Scoring** — Weighted aggregation across 11 categories → 0-100 score
 6. **Report Generation** — Markdown/JSON/summary report with self-contained LLM-executable improvement tasks
 7. **Auto-Fix** — Applies recommendations via Claude Code in isolated worktrees, re-scores, merges if improved
 
@@ -36,28 +36,34 @@ src/
 ├── watch.ts                    # Watch mode: fs.watch + debounced re-analysis
 ├── core/
 │   ├── claude.ts               # Claude CLI wrapper (spawn, JSON parse, structured output, retry)
-│   ├── fs.ts                   # walkDir, countLines, readFileSafe, buildTree, stratifiedSample, buildDirectorySummary, detectVibeCoderFiles, isDataFile, isVendoredFile
+│   ├── fs.ts                   # walkDir, countLines, readFileSafe, buildTree, stratifiedSample, buildDirectorySummary, buildTokenHeatmap, detectVibeCoderFiles, isDataFile, isVendoredFile
 │   ├── git.ts                  # isGitRepo, worktreeAdd/Remove, gitDiffNames
 │   ├── isolation.ts            # Worktree vs tmpdir-copy strategy for empirical testing + auto-fix
-│   └── history.ts              # Score history tracking (.llm-sense/history.json)
+│   ├── history.ts              # Score history tracking (.llm-sense/history.json)
+│   ├── monorepo.ts             # Monorepo detection + package discovery
+│   └── cache.ts                # Incremental analysis cache (manifest-based mtime tracking)
 ├── analyzers/                  # Phase 1: each exports a pure function
 │   ├── fileSizes.ts            # Line count distribution, god-file detection, file classification (data/vendored/code)
 │   ├── directoryStructure.ts   # Depth, breadth, files per dir
 │   ├── naming.ts               # Per-directory convention detection + consistency scoring (excludes single-word names)
-│   ├── documentation.ts        # CLAUDE.md deep content scoring (8 sections), vibe coder files, multi-format AI config scoring
+│   ├── documentation.ts        # CLAUDE.md deep content scoring (8 sections), config drift detection, AI config coverage/consistency, vibe coder files
 │   ├── imports.ts              # Dependency graph: fan-in/out, hub files, orphan files, max chain depth
 │   ├── modularity.ts           # Files per dir, barrel exports, single-file dirs
 │   ├── noise.ts                # Generated files, binaries, lockfiles, vendored file detection
-│   └── devInfra.ts             # CI config, test commands, linter, pre-commit hooks, type checking detection
+│   ├── devInfra.ts             # CI config, test commands, linter, pre-commit hooks, type checking detection
+│   ├── security.ts             # Secret detection, .env exposure, sensitive files, lockfile checks
+│   └── duplicates.ts           # Semantic duplicate detection via export name fingerprinting
+├── mcp/
+│   └── server.ts               # MCP server — manual stdio JSON-RPC, 5 tools for AI agent integration
 ├── commands/
-│   └── init.ts                 # `llm-sense init` — scaffold CLAUDE.md, .cursorrules, copilot-instructions.md
+│   └── init.ts                 # `llm-sense init` — scaffold CLAUDE.md, .cursorrules, copilot-instructions.md, AGENTS.md
 ├── phases/
 │   ├── runner.ts               # Orchestrates all phases sequentially, format branching, exit codes
-│   ├── staticAnalysis.ts       # Phase 1: runs all 9 analyzers
+│   ├── staticAnalysis.ts       # Phase 1: runs all 10 analyzers
 │   ├── llmUnderstanding.ts     # Phase 2: Claude CLI → CodebaseUnderstanding
 │   ├── taskGeneration.ts       # Phase 3: Claude CLI → SyntheticTask[]
 │   ├── empiricalTesting.ts     # Phase 4: parallel task execution in worktrees, correctness verification
-│   ├── scoring.ts              # Phase 5: weighted scoring formulas (10 categories, architecture-aware)
+│   ├── scoring.ts              # Phase 5: weighted scoring formulas (11 categories, architecture-aware)
 │   └── autoFix.ts              # Phase 7: worktree isolation → Claude Code → re-score → patch merge
 └── report/
     ├── generator.ts            # Phase 6: Markdown report formatting + rendering
@@ -180,6 +186,11 @@ npm publish          # publish to npm
 - **Exit codes:** 0 = success, 1 = score below `--min-score` threshold, 2 = analysis failure (path not found, Claude CLI error, etc.).
 - **Watch mode platform support:** `fs.watch` with `recursive: true` may not work on all platforms. macOS and Windows support it natively; Linux may require `inotify` kernel support.
 - **Auto-fix worktree cleanup:** Auto-fix always cleans up worktrees, even on failure. If the process is killed mid-fix, stale worktrees in `/tmp/llm-sense-wt-*` may need manual cleanup.
+- **Config drift false positives:** The drift detector only matches paths containing `/` (directory separators) to avoid flagging brand names like "Express.js". Built-in npm commands (`install`, `ci`, etc.) are excluded from script validation. Workspace package.json files are checked for monorepo script resolution.
+- **Token heatmap uses byte-based estimation:** Tokens are estimated as `bytes / 4` — this is rough but avoids a tokenizer dependency. Actual token counts may vary by 20-40% depending on code density.
+- **Security scanning skips test files:** The secret detection regex skips files in test/fixture/mock/example directories to avoid false positives from test fixtures. Only the first 16KB of each file is scanned.
+- **Scoring version tracking:** History entries include `scoringVersion` starting from v0.9.0. The trend chart shows version boundaries. Old entries without a version are treated as pre-0.9.0.
+- **Init command generates all files by default:** `llm-sense init` now generates CLAUDE.md, .cursorrules, copilot-instructions.md, and AGENTS.md. Files that already exist are skipped. Use `--overwrite` to replace existing files.
 
 ## Environment Setup
 

@@ -105,7 +105,78 @@ function computeMaxChainDepth(graph: Map<string, Set<string>>): number {
   return maxDepth;
 }
 
-export async function analyzeImports(entries: WalkEntry[]): Promise<ImportsResult> {
+// Compute context fragmentation using connected components.
+// Builds undirected graph, finds clusters via BFS, measures inter vs intra-cluster edges.
+function computeFragmentation(graph: Map<string, Set<string>>): number {
+  if (graph.size < 3) return 0; // Too few nodes for meaningful fragmentation
+
+  // Build undirected adjacency
+  const undirected = new Map<string, Set<string>>();
+  for (const [src, deps] of graph) {
+    if (!undirected.has(src)) undirected.set(src, new Set());
+    for (const dep of deps) {
+      undirected.get(src)!.add(dep);
+      if (!undirected.has(dep)) undirected.set(dep, new Set());
+      undirected.get(dep)!.add(src);
+    }
+  }
+
+  // BFS to find connected components
+  const visited = new Set<string>();
+  const clusters: Set<string>[] = [];
+
+  for (const node of undirected.keys()) {
+    if (visited.has(node)) continue;
+    const cluster = new Set<string>();
+    const queue = [node];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (visited.has(current)) continue;
+      visited.add(current);
+      cluster.add(current);
+
+      const neighbors = undirected.get(current);
+      if (neighbors) {
+        for (const n of neighbors) {
+          if (!visited.has(n)) queue.push(n);
+        }
+      }
+    }
+
+    if (cluster.size > 1) clusters.push(cluster);
+  }
+
+  if (clusters.length < 2) return 0; // Single cluster = no fragmentation
+
+  // Count inter-cluster vs intra-cluster edges (on directed graph)
+  const nodeToCluster = new Map<string, number>();
+  for (let i = 0; i < clusters.length; i++) {
+    for (const node of clusters[i]) {
+      nodeToCluster.set(node, i);
+    }
+  }
+
+  let intraEdges = 0;
+  let interEdges = 0;
+  for (const [src, deps] of graph) {
+    const srcCluster = nodeToCluster.get(src);
+    if (srcCluster === undefined) continue;
+    for (const dep of deps) {
+      const depCluster = nodeToCluster.get(dep);
+      if (depCluster === undefined) continue;
+      if (srcCluster === depCluster) intraEdges++;
+      else interEdges++;
+    }
+  }
+
+  const totalEdges = intraEdges + interEdges;
+  if (totalEdges === 0) return 0;
+
+  return Math.round((interEdges / totalEdges) * 100) / 100;
+}
+
+export async function analyzeImports(entries: WalkEntry[]): Promise<{ result: ImportsResult; graph: Map<string, Set<string>>; fragmentationRatio: number }> {
   const sourceFiles = getSourceFiles(entries);
 
   let totalImports = 0;
@@ -202,15 +273,21 @@ export async function analyzeImports(entries: WalkEntry[]): Promise<ImportsResul
     }
   }
 
+  const fragmentationRatio = computeFragmentation(graph);
+
   return {
-    avgImportsPerFile: sampled.length > 0 ? Math.round((totalImports / sampled.length) * 10) / 10 : 0,
-    maxImportsInFile: { path: maxImportsPath, count: maxImportsCount },
-    circularDeps: [],
-    externalDependencyCount,
-    avgFanOut,
-    avgFanIn,
-    hubFiles,
-    orphanFiles,
-    maxChainDepth,
+    result: {
+      avgImportsPerFile: sampled.length > 0 ? Math.round((totalImports / sampled.length) * 10) / 10 : 0,
+      maxImportsInFile: { path: maxImportsPath, count: maxImportsCount },
+      circularDeps: [],
+      externalDependencyCount,
+      avgFanOut,
+      avgFanIn,
+      hubFiles,
+      orphanFiles,
+      maxChainDepth,
+    },
+    graph,
+    fragmentationRatio,
   };
 }
