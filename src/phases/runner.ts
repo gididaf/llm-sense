@@ -14,9 +14,10 @@ import { generatePlan } from '../report/recommendations.js';
 import { buildJsonOutput, formatSummary } from '../report/jsonOutput.js';
 import { writeBadge } from '../report/badge.js';
 import { buildComparison, formatComparisonMarkdown, formatComparisonJson, type ComparisonRepo } from '../report/comparison.js';
-import { runAutoFix, formatFixResults } from './autoFix.js';
+import { runAutoFix, formatFixResults, runAutoImprove } from './autoFix.js';
 import { cleanupAll } from '../core/isolation.js';
-import type { CliOptions, CodebaseUnderstanding, TaskGenerationResponse, TaskExecutionResult, FinalReport } from '../types.js';
+import { loadProfile } from './scoring.js';
+import type { CliOptions, CodebaseUnderstanding, TaskGenerationResponse, TaskExecutionResult, FinalReport, PrDeltaResult } from '../types.js';
 
 export async function run(options: CliOptions): Promise<void> {
   const startTime = Date.now();
@@ -42,7 +43,34 @@ export async function run(options: CliOptions): Promise<void> {
     process.exit(2);
   }
 
-  if (!options.skipEmpirical || options.fix) {
+  // Auto-improve validation
+  if (options.autoImprove && options.target === undefined) {
+    console.error(chalk.red('  Error: --auto-improve requires --target <score>'));
+    process.exit(2);
+  }
+
+  // Load scoring profile
+  let profileWeights: Record<string, number> | undefined;
+  if (options.profile) {
+    const loaded = await loadProfile(options.path, options.profile);
+    if (loaded) {
+      profileWeights = loaded;
+      log(chalk.dim(`  Profile: ${options.profile}`));
+    } else {
+      console.error(chalk.red(`  Error: Profile "${options.profile}" not found.`));
+      console.error(chalk.dim('  Built-in: default, static-only, strict, docs, security'));
+      console.error(chalk.dim('  Custom: create .llm-sense/profile.json'));
+      process.exit(2);
+    }
+  }
+
+  // Fast path: PR delta prediction (--pr-delta)
+  if (options.prDelta) {
+    await runPrDelta(options, profileWeights, log, isQuietStdout);
+    return;
+  }
+
+  if (!options.skipEmpirical || options.fix || options.autoImprove) {
     const claudeOk = await isClaudeInstalled();
     if (!claudeOk) {
       console.error(chalk.red('  Error: Claude Code CLI not found.'));
@@ -179,7 +207,7 @@ export async function run(options: CliOptions): Promise<void> {
   // Phase 5: Scoring
   const skipEmpirical = options.skipEmpirical || taskResults.length === 0;
   log(chalk.yellow('Phase 5:') + ' Scoring');
-  const scoring = computeScores(staticResult, taskResults, skipEmpirical);
+  const scoring = computeScores(staticResult, taskResults, skipEmpirical, profileWeights);
   let { categories, overallScore, grade } = scoring;
 
   // Apply LLM verification adjustments (±15 points per category)
@@ -276,6 +304,7 @@ export async function run(options: CliOptions): Promise<void> {
     targetPath: options.path,
     costUsd: totalCostUsd,
     scoringVersion: SCORING_VERSION,
+    ...(options.profile ? { profile: options.profile } : {}),
   });
 
   // Save cache manifest for incremental analysis
@@ -350,6 +379,38 @@ export async function run(options: CliOptions): Promise<void> {
     totalCostUsd += fixCost;
   }
 
+  // Phase 7b: Auto-Improve loop (--auto-improve flag)
+  if (options.autoImprove && options.target !== undefined) {
+    log(chalk.yellow('Phase 7b:') + ' Auto-Improve Loop');
+    log(chalk.dim(`  Target: ${options.target} | Max iterations: ${options.maxIterations} | Budget: $${options.maxTotalBudget.toFixed(2)}`));
+    log('');
+
+    const autoResult = await runAutoImprove(options, overallScore, log);
+
+    log('');
+    log(chalk.bold('  Auto-Improve Results'));
+    log('  ' + '─'.repeat(55));
+    log(`  Start: ${autoResult.startScore}/100  →  Target: ${autoResult.targetScore}  →  Reached: ${autoResult.finalScore}/100`);
+    log('');
+    if (autoResult.iterations.length > 0) {
+      log('  | # | Recommendation | Delta | Cost |');
+      log('  |---|---------------|-------|------|');
+      for (const it of autoResult.iterations) {
+        const deltaStr = it.success ? `+${it.delta}` : 'failed';
+        log(`  | ${it.index} | ${it.recommendation.slice(0, 40)} | ${deltaStr} | $${it.costUsd.toFixed(2)} |`);
+      }
+      log('');
+    }
+    const totalDelta = autoResult.finalScore - autoResult.startScore;
+    log(`  Total: ${totalDelta >= 0 ? '+' : ''}${totalDelta} points in ${autoResult.totalIterations} iterations ($${autoResult.totalCostUsd.toFixed(2)})`);
+    if (!autoResult.reachedTarget) {
+      log(chalk.dim(`  Remaining gap to target: ${autoResult.targetScore - autoResult.finalScore} points`));
+    }
+    log('');
+
+    totalCostUsd += autoResult.totalCostUsd;
+  }
+
   // Interactive mode (--interactive / -i)
   if (options.interactive) {
     const { runInteractive } = await import('../interactive.js');
@@ -376,6 +437,95 @@ function formatDuration(ms: number): string {
   const minutes = Math.floor(ms / 60_000);
   const seconds = Math.round((ms % 60_000) / 1000);
   return `${minutes}m ${seconds}s`;
+}
+
+async function runPrDelta(
+  options: CliOptions,
+  profileWeights: Record<string, number> | undefined,
+  log: (...args: unknown[]) => void,
+  isQuietStdout: boolean,
+): Promise<void> {
+  const { gitChangedFiles } = await import('../core/git.js');
+  const { isGitRepo } = await import('../core/git.js');
+
+  if (!(await isGitRepo(options.path))) {
+    console.error(chalk.red('  Error: --pr-delta requires a git repository'));
+    process.exit(2);
+  }
+
+  log(chalk.yellow('PR Delta Prediction'));
+  const changedFiles = await gitChangedFiles(options.path);
+
+  if (changedFiles.length === 0) {
+    log(chalk.dim('  No changed files detected'));
+    if (isQuietStdout) {
+      process.stdout.write(JSON.stringify({ predictedDelta: 0, affectedCategories: [], changedFiles: [], analysisMode: 'selective' }) + '\n');
+    }
+    return;
+  }
+
+  log(chalk.dim(`  ${changedFiles.length} files changed`));
+
+  // Load previous score from history
+  const previousScore = await getPreviousScore(options.path);
+  if (previousScore === null) {
+    log(chalk.yellow('  No previous score found — running full analysis as baseline'));
+  }
+
+  // Run full static analysis (fast, <3s) — selective re-run is complex and
+  // the full run is fast enough for CI. Cache handles the optimization.
+  const { result: staticResult } = await runStaticAnalysis(options.path, false);
+  const { categories, overallScore } = computeScores(staticResult, [], true, profileWeights);
+
+  // Classify which categories are affected by changed files
+  const affectedCategories: PrDeltaResult['affectedCategories'] = [];
+  let prevScores: Record<string, number> = {};
+  if (previousScore !== null) {
+    const { loadHistory } = await import('../core/history.js');
+    const history = await loadHistory(options.path);
+    if (history.length > 0) {
+      prevScores = history[history.length - 1].categoryScores;
+    }
+  }
+
+  for (const cat of categories) {
+    const prev = prevScores[cat.name] ?? cat.score;
+    if (prev !== cat.score) {
+      affectedCategories.push({
+        name: cat.name,
+        previousScore: prev,
+        newScore: cat.score,
+        delta: cat.score - prev,
+      });
+    }
+  }
+
+  const predictedDelta = previousScore !== null ? overallScore - previousScore : 0;
+
+  const result: PrDeltaResult = {
+    predictedDelta,
+    affectedCategories,
+    changedFiles,
+    analysisMode: 'full-fallback',
+  };
+
+  if (options.format === 'json') {
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  } else if (options.format === 'summary') {
+    process.stdout.write(`delta:${predictedDelta} affected:${affectedCategories.length} files:${changedFiles.length}\n`);
+  } else {
+    log('');
+    log(chalk.bold(`  Predicted Delta: ${predictedDelta >= 0 ? '+' : ''}${predictedDelta}`));
+    if (affectedCategories.length > 0) {
+      log('');
+      for (const ac of affectedCategories) {
+        const color = ac.delta >= 0 ? chalk.green : chalk.red;
+        log(`  ${ac.name}: ${ac.previousScore} → ${ac.newScore} (${color(`${ac.delta >= 0 ? '+' : ''}${ac.delta}`)})`);
+      }
+    }
+    log(chalk.dim(`\n  ${changedFiles.length} files analyzed`));
+  }
+  log('');
 }
 
 async function runMonorepo(

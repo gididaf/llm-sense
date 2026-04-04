@@ -1,4 +1,4 @@
-import { walkDir, buildTokenHeatmap, type WalkEntry } from '../core/fs.js';
+import { walkDir, buildTokenHeatmap, buildContextWindowProfile, type WalkEntry } from '../core/fs.js';
 import { analyzeFileSizes } from '../analyzers/fileSizes.js';
 import { analyzeDirectoryStructure } from '../analyzers/directoryStructure.js';
 import { analyzeNaming } from '../analyzers/naming.js';
@@ -9,6 +9,7 @@ import { analyzeNoise } from '../analyzers/noise.js';
 import { analyzeDevInfra } from '../analyzers/devInfra.js';
 import { analyzeSecurity } from '../analyzers/security.js';
 import { analyzeDuplicates } from '../analyzers/duplicates.js';
+import { runLanguageChecks } from '../analyzers/languageChecks.js';
 import type { StaticAnalysisResult } from '../types.js';
 
 export async function runStaticAnalysis(
@@ -56,6 +57,12 @@ export async function runStaticAnalysis(
   if (verbose) console.log('  Detecting semantic duplicates...');
   const duplicates = await analyzeDuplicates(entries);
 
+  if (verbose) console.log('  Building context window profile...');
+  const contextProfile = buildContextWindowProfile(tokenHeatmap);
+
+  if (verbose) console.log('  Running language-specific checks...');
+  const languageChecks = await runLanguageChecks(entries);
+
   return {
     result: {
       fileSizes,
@@ -70,6 +77,8 @@ export async function runStaticAnalysis(
       tokenHeatmap,
       duplicates,
       fragmentationRatio,
+      contextProfile,
+      languageChecks,
     },
     entries,
   };

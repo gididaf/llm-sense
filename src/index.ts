@@ -6,7 +6,7 @@ const program = new Command();
 program
   .name('llm-sense')
   .description('Analyze how LLM-friendly a codebase is')
-  .version('1.0.0')
+  .version('1.3.0')
   .option('--path <dir>', 'Path to the codebase to analyze', '.')
   .option('--bugs <n>', 'Number of synthetic bug tasks', '5')
   .option('--features <n>', 'Number of synthetic feature tasks', '5')
@@ -35,6 +35,12 @@ program
   .option('--monorepo', 'Force per-package monorepo analysis')
   .option('--no-monorepo', 'Skip monorepo detection, analyze as single repo')
   .option('--no-cache', 'Force full re-analysis, ignoring cached results')
+  .option('--pr-delta', 'Predict score impact of changed files only (fast CI mode)')
+  .option('--auto-improve', 'Auto-improve loop: keep fixing until target score is reached')
+  .option('--target <score>', 'Target score for --auto-improve (required with --auto-improve)')
+  .option('--max-iterations <n>', 'Max fix cycles for --auto-improve', '10')
+  .option('--max-total-budget <usd>', 'Total budget cap for --auto-improve', '5.00')
+  .option('--profile <name>', 'Scoring profile: default, strict, docs, security, or path to .llm-sense/profile.json')
   .action(async (options) => {
     const targetPath = resolve(options.path);
 
@@ -93,6 +99,12 @@ program
       monorepo: options.monorepo === true,
       noMonorepo: options.monorepo === false,
       noCache: options.cache === false,
+      prDelta: options.prDelta ?? false,
+      autoImprove: options.autoImprove ?? false,
+      target: options.target ? parseInt(options.target, 10) : undefined,
+      maxIterations: parseInt(options.maxIterations, 10),
+      maxTotalBudget: parseFloat(options.maxTotalBudget),
+      profile: options.profile,
     });
   });
 

@@ -29,6 +29,15 @@ export interface CliOptions {
   monorepo: boolean;
   noMonorepo: boolean;
   noCache: boolean;
+  // v1.1.0
+  prDelta: boolean;
+  // v1.2.0
+  autoImprove: boolean;
+  target?: number;
+  maxIterations: number;
+  maxTotalBudget: number;
+  // v1.3.0
+  profile?: string;
 }
 
 // ─── Phase 1: Static Analysis ─────────────────────────────
@@ -225,6 +234,8 @@ export interface StaticAnalysisResult {
   tokenHeatmap: TokenHeatmap;
   duplicates: DuplicatesResult;
   fragmentationRatio: number;
+  contextProfile?: ContextWindowProfile;
+  languageChecks?: LanguageCheckResult[];
 }
 
 // ─── LLM Verification (Phase 2b) ─────────────────────────
@@ -370,6 +381,7 @@ export interface HistoryEntry {
   targetPath: string;
   costUsd: number;
   scoringVersion?: string;
+  profile?: string;
 }
 
 export interface FinalReport {
@@ -432,4 +444,128 @@ export class IsolationError extends LlmSenseError {
   constructor(message: string) {
     super(message, 'ISOLATION_ERROR');
   }
+}
+
+// ─── v1.1.0: Per-PR Delta Prediction ────────────────────
+
+export interface PrDeltaResult {
+  predictedDelta: number;
+  affectedCategories: Array<{
+    name: string;
+    previousScore: number;
+    newScore: number;
+    delta: number;
+  }>;
+  changedFiles: string[];
+  analysisMode: 'selective' | 'full-fallback';
+}
+
+// ─── v1.2.0: Context Window Profiling ───────────────────
+
+export interface ContextWindowTier {
+  windowSize: number;
+  label: string;
+  coverage: number;
+  verdict: 'Insufficient' | 'Partial' | 'Good' | 'Full';
+}
+
+export interface ContextWindowProfile {
+  totalSourceTokens: number;
+  tiers: ContextWindowTier[];
+  recommendedMinimum: string;
+  bestExperience: string;
+  topConsumers: Array<{ path: string; percentage: number; tokens: number }>;
+}
+
+// ─── v1.2.0: Auto-Improve Loop ─────────────────────────
+
+export interface AutoImproveResult {
+  startScore: number;
+  finalScore: number;
+  targetScore: number;
+  iterations: Array<{
+    index: number;
+    recommendation: string;
+    delta: number;
+    costUsd: number;
+    success: boolean;
+  }>;
+  totalCostUsd: number;
+  totalIterations: number;
+  reachedTarget: boolean;
+}
+
+// ─── v1.2.0: AI-Generated Config (Zod schema) ──────────
+
+export const ClaudeMdSectionsSchema = z.object({
+  architectureOverview: z.string(),
+  moduleMap: z.string(),
+  commonPatterns: z.string(),
+  testing: z.string(),
+  buildRunDeploy: z.string(),
+  gotchas: z.string(),
+  techStack: z.string(),
+  environmentSetup: z.string(),
+});
+
+export type ClaudeMdSections = z.infer<typeof ClaudeMdSectionsSchema>;
+
+export const CursorRulesSectionsSchema = z.object({
+  projectContext: z.string(),
+  codingConventions: z.string(),
+  importantFiles: z.string(),
+  commands: z.string(),
+  rules: z.string(),
+});
+
+export type CursorRulesSections = z.infer<typeof CursorRulesSectionsSchema>;
+
+export const CopilotInstructionsSectionsSchema = z.object({
+  projectOverview: z.string(),
+  conventions: z.string(),
+  commands: z.string(),
+  architecture: z.string(),
+});
+
+export type CopilotInstructionsSections = z.infer<typeof CopilotInstructionsSectionsSchema>;
+
+export const AgentsMdSectionsSchema = z.object({
+  overview: z.string(),
+  keyDirectories: z.string(),
+  makingChanges: z.string(),
+  testing: z.string(),
+  commonPitfalls: z.string(),
+});
+
+export type AgentsMdSections = z.infer<typeof AgentsMdSectionsSchema>;
+
+// ─── v1.3.0: Language-Specific Checks ───────────────────
+
+export interface LanguageCheckFinding {
+  check: string;
+  language: string;
+  file: string;
+  line: number;
+  penalty: number;
+  message: string;
+}
+
+export interface LanguageCheckResult {
+  language: string;
+  checks: Array<{
+    name: string;
+    occurrences: number;
+    penalty: number;
+    cap: number;
+  }>;
+  totalPenalty: number;
+  findings: LanguageCheckFinding[];
+  filesScanned: number;
+}
+
+// ─── v1.3.0: Custom Scoring Profiles ────────────────────
+
+export interface ScoringProfile {
+  name: string;
+  weights: Record<string, number>;
 }

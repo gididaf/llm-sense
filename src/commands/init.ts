@@ -1,7 +1,11 @@
 import { access, writeFile, readFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, basename } from 'node:path';
 import chalk from 'chalk';
 import { runStaticAnalysis } from '../phases/staticAnalysis.js';
+import { isClaudeInstalled, callClaudeStructured } from '../core/claude.js';
+import { buildDirectorySummary, stratifiedSample, readFileSafe, getSourceFiles } from '../core/fs.js';
+import type { WalkEntry } from '../core/fs.js';
+import { ClaudeMdSectionsSchema, CursorRulesSectionsSchema, CopilotInstructionsSectionsSchema, AgentsMdSectionsSchema } from '../types.js';
 import type { StaticAnalysisResult } from '../types.js';
 
 async function fileExists(path: string): Promise<boolean> {
@@ -289,6 +293,192 @@ function generateAgentsMd(
   return lines.join('\n');
 }
 
+// ─── AI-Powered Generation (Claude CLI) ────────────────
+
+async function buildCodebaseContext(
+  targetPath: string,
+  entries: WalkEntry[],
+  techStack: string[],
+  frameworks: string[],
+  commands: { build?: string; test?: string; dev?: string; install?: string },
+): Promise<string> {
+  const sourceFiles = getSourceFiles(entries);
+  const tree = buildDirectorySummary(sourceFiles);
+  const sampleFiles = stratifiedSample(sourceFiles, 30);
+  const sampleContents = await Promise.all(
+    sampleFiles.map(async f => ({
+      path: f.relativePath,
+      content: await readFileSafe(f.path, 10_000), // ~200 lines
+    })),
+  );
+
+  return `## Codebase Context
+- Tech stack: ${techStack.join(', ') || 'unknown'}
+- Frameworks: ${frameworks.join(', ') || 'none detected'}
+- Commands: build=${commands.build || 'unknown'}, test=${commands.test || 'unknown'}, dev=${commands.dev || 'unknown'}
+- File count: ${sourceFiles.length} source files
+
+## Directory Structure
+${tree}
+
+## Sample Files (${sampleFiles.length} representative files):
+${sampleContents.map(f => `### ${f.path}\n\`\`\`\n${f.content.slice(0, 3000)}\n\`\`\``).join('\n\n')}`;
+}
+
+async function generateClaudeMdWithClaude(
+  targetPath: string,
+  entries: WalkEntry[],
+  techStack: string[],
+  frameworks: string[],
+  commands: { build?: string; test?: string; dev?: string; install?: string },
+): Promise<string> {
+  const context = await buildCodebaseContext(targetPath, entries, techStack, frameworks, commands);
+  const prompt = `You are analyzing a codebase to generate a comprehensive CLAUDE.md file.
+
+${context}
+
+## Task
+Write a CLAUDE.md file with these 8 sections. Each section must contain REAL, SPECIFIC content about THIS codebase — not generic placeholders.
+
+1. **Architecture Overview** — How the system is structured, what the main components are, how data flows
+2. **Module Map** — Directory tree with descriptions of what each top-level directory contains
+3. **Common Patterns** — How to add a new feature, new API endpoint, new test, etc. in this specific codebase
+4. **Testing** — What testing framework is used, how to run tests, how to write new tests
+5. **Build / Run / Deploy** — Exact commands to build, run, test, deploy
+6. **Gotchas** — Things that would surprise a new developer or trip up an AI coding assistant
+7. **Tech Stack** — Languages, frameworks, libraries, and their versions
+8. **Environment Setup** — How to set up a development environment from scratch
+
+Be specific. Reference actual file paths, actual function names, actual patterns from the sample files.`;
+
+  const { data } = await callClaudeStructured(
+    { prompt, cwd: targetPath, timeout: 120_000 },
+    ClaudeMdSectionsSchema,
+  );
+
+  const projectName = basename(targetPath);
+  return [
+    `# ${projectName}`, '',
+    '## Architecture Overview', '', data.architectureOverview, '',
+    '## Module Map', '', data.moduleMap, '',
+    '## Common Patterns', '', data.commonPatterns, '',
+    '## Testing', '', data.testing, '',
+    '## Build / Run / Deploy', '', data.buildRunDeploy, '',
+    '## Gotchas', '', data.gotchas, '',
+    '## Tech Stack', '', data.techStack, '',
+    '## Environment Setup', '', data.environmentSetup, '',
+  ].join('\n');
+}
+
+async function generateCursorRulesWithClaude(
+  targetPath: string,
+  entries: WalkEntry[],
+  techStack: string[],
+  frameworks: string[],
+  commands: { build?: string; test?: string; dev?: string; install?: string },
+): Promise<string> {
+  const context = await buildCodebaseContext(targetPath, entries, techStack, frameworks, commands);
+  const prompt = `You are analyzing a codebase to generate a .cursorrules file for Cursor AI.
+
+${context}
+
+## Task
+Generate a .cursorrules file with these sections. Be specific to THIS codebase, not generic.
+
+1. **Project Context** — What this project does, key technologies
+2. **Coding Conventions** — Naming, file structure, patterns used
+3. **Important Files** — Key entry points, configs, and critical files
+4. **Commands** — Build, test, run, deploy commands
+5. **Rules** — Specific rules for working with this codebase`;
+
+  const { data } = await callClaudeStructured(
+    { prompt, cwd: targetPath, timeout: 120_000 },
+    CursorRulesSectionsSchema,
+  );
+
+  const projectName = basename(targetPath);
+  return [
+    `# ${projectName} - Cursor Rules`, '',
+    '## Project Context', '', data.projectContext, '',
+    '## Coding Conventions', '', data.codingConventions, '',
+    '## Important Files', '', data.importantFiles, '',
+    '## Commands', '', data.commands, '',
+    '## Rules', '', data.rules, '',
+  ].join('\n');
+}
+
+async function generateCopilotInstructionsWithClaude(
+  targetPath: string,
+  entries: WalkEntry[],
+  techStack: string[],
+  frameworks: string[],
+  commands: { build?: string; test?: string; dev?: string; install?: string },
+): Promise<string> {
+  const context = await buildCodebaseContext(targetPath, entries, techStack, frameworks, commands);
+  const prompt = `You are analyzing a codebase to generate a copilot-instructions.md file for GitHub Copilot.
+
+${context}
+
+## Task
+Generate a copilot-instructions.md with these sections. Be specific to THIS codebase.
+
+1. **Project Overview** — What this project does, key architecture
+2. **Conventions** — Coding style, naming, file organization
+3. **Commands** — Build, test, run commands
+4. **Architecture** — How components interact, data flow`;
+
+  const { data } = await callClaudeStructured(
+    { prompt, cwd: targetPath, timeout: 120_000 },
+    CopilotInstructionsSectionsSchema,
+  );
+
+  const projectName = basename(targetPath);
+  return [
+    `# ${projectName} - Copilot Instructions`, '',
+    '## Project Overview', '', data.projectOverview, '',
+    '## Conventions', '', data.conventions, '',
+    '## Commands', '', data.commands, '',
+    '## Architecture', '', data.architecture, '',
+  ].join('\n');
+}
+
+async function generateAgentsMdWithClaude(
+  targetPath: string,
+  entries: WalkEntry[],
+  techStack: string[],
+  frameworks: string[],
+  commands: { build?: string; test?: string; dev?: string; install?: string },
+): Promise<string> {
+  const context = await buildCodebaseContext(targetPath, entries, techStack, frameworks, commands);
+  const prompt = `You are analyzing a codebase to generate an AGENTS.md file for AI coding agents.
+
+${context}
+
+## Task
+Generate an AGENTS.md with these sections. Be specific to THIS codebase.
+
+1. **Overview** — What this project does, its purpose and scope
+2. **Key Directories** — Purpose of each major directory
+3. **Making Changes** — How to add features, fix bugs, follow patterns
+4. **Testing** — How to run tests, write new tests
+5. **Common Pitfalls** — Things that will trip up an AI agent`;
+
+  const { data } = await callClaudeStructured(
+    { prompt, cwd: targetPath, timeout: 120_000 },
+    AgentsMdSectionsSchema,
+  );
+
+  const projectName = basename(targetPath);
+  return [
+    `# ${projectName} - Agent Instructions`, '',
+    '## Overview', '', data.overview, '',
+    '## Key Directories', '', data.keyDirectories, '',
+    '## Making Changes', '', data.makingChanges, '',
+    '## Testing', '', data.testing, '',
+    '## Common Pitfalls', '', data.commonPitfalls, '',
+  ].join('\n');
+}
+
 export async function runInit(targetPath: string, verbose: boolean, overwrite: boolean = false): Promise<void> {
   console.log('');
   console.log(chalk.bold('  llm-sense init') + ' — Scaffolding AI config files');
@@ -298,7 +488,7 @@ export async function runInit(targetPath: string, verbose: boolean, overwrite: b
 
   // Run Phase 1 for context
   console.log(chalk.dim('  Analyzing codebase...'));
-  const { result: staticResult } = await runStaticAnalysis(targetPath, verbose);
+  const { result: staticResult, entries } = await runStaticAnalysis(targetPath, verbose);
   console.log(chalk.green('  ✓') + ` ${staticResult.fileSizes.totalFiles} files analyzed`);
 
   // Detect tech stack, frameworks, commands
@@ -308,6 +498,14 @@ export async function runInit(targetPath: string, verbose: boolean, overwrite: b
 
   if (techStack.length > 0 || frameworks.length > 0) {
     console.log(chalk.dim(`  Detected: ${[...techStack, ...frameworks].join(', ')}`));
+  }
+
+  // Check if Claude CLI is available for AI-powered generation
+  const claudeAvailable = await isClaudeInstalled();
+  if (claudeAvailable) {
+    console.log(chalk.cyan('  Claude CLI detected — generating AI-powered config files...'));
+  } else {
+    console.log(chalk.yellow('  Claude CLI not found — using template-based generation (install Claude for richer output)'));
   }
   console.log('');
 
@@ -324,44 +522,70 @@ export async function runInit(targetPath: string, verbose: boolean, overwrite: b
       await mkdir(dir, { recursive: true });
     }
     await writeFile(filePath, content, 'utf-8');
-    const verb = (await fileExists(filePath)) ? 'Created' : 'Updated';
-    console.log(chalk.green('  ✓') + ` ${verb} ${chalk.underline(label)}`);
+    console.log(chalk.green('  ✓') + ` Created ${chalk.underline(label)}`);
     filesCreated++;
   }
 
-  // CLAUDE.md — always generate
-  await writeConfig(
-    join(targetPath, 'CLAUDE.md'),
-    'CLAUDE.md',
-    generateClaudeMdFromStatic(staticResult, targetPath, techStack, frameworks, commands),
-  );
+  // Generate content — AI-powered or template-based
+  let claudeMdContent: string;
+  let cursorContent: string;
+  let copilotContent: string;
+  let agentsContent: string;
 
-  // .cursorrules — always generate (Cursor is dominant)
-  await writeConfig(
-    join(targetPath, '.cursorrules'),
-    '.cursorrules',
-    generateCursorRules(staticResult, targetPath, techStack, frameworks, commands),
-  );
+  if (claudeAvailable) {
+    try {
+      claudeMdContent = await generateClaudeMdWithClaude(targetPath, entries, techStack, frameworks, commands);
+    } catch (e) {
+      console.log(chalk.yellow(`  CLAUDE.md AI generation failed, falling back to template: ${e instanceof Error ? e.message : e}`));
+      claudeMdContent = generateClaudeMdFromStatic(staticResult, targetPath, techStack, frameworks, commands);
+    }
+
+    try {
+      cursorContent = await generateCursorRulesWithClaude(targetPath, entries, techStack, frameworks, commands);
+    } catch {
+      cursorContent = generateCursorRules(staticResult, targetPath, techStack, frameworks, commands);
+    }
+
+    try {
+      copilotContent = await generateCopilotInstructionsWithClaude(targetPath, entries, techStack, frameworks, commands);
+    } catch {
+      copilotContent = generateCopilotInstructions(staticResult, targetPath, techStack, frameworks, commands);
+    }
+
+    try {
+      agentsContent = await generateAgentsMdWithClaude(targetPath, entries, techStack, frameworks, commands);
+    } catch {
+      agentsContent = generateAgentsMd(staticResult, targetPath, techStack, frameworks);
+    }
+  } else {
+    claudeMdContent = generateClaudeMdFromStatic(staticResult, targetPath, techStack, frameworks, commands);
+    cursorContent = generateCursorRules(staticResult, targetPath, techStack, frameworks, commands);
+    copilotContent = generateCopilotInstructions(staticResult, targetPath, techStack, frameworks, commands);
+    agentsContent = generateAgentsMd(staticResult, targetPath, techStack, frameworks);
+  }
+
+  // CLAUDE.md — always generate
+  await writeConfig(join(targetPath, 'CLAUDE.md'), 'CLAUDE.md', claudeMdContent);
+
+  // .cursorrules — always generate
+  await writeConfig(join(targetPath, '.cursorrules'), '.cursorrules', cursorContent);
 
   // .github/copilot-instructions.md — generate if .github/ exists or create it
   if (await fileExists(join(targetPath, '.github')) || await fileExists(join(targetPath, '.git'))) {
     await writeConfig(
       join(targetPath, '.github', 'copilot-instructions.md'),
       '.github/copilot-instructions.md',
-      generateCopilotInstructions(staticResult, targetPath, techStack, frameworks, commands),
+      copilotContent,
     );
   }
 
   // AGENTS.md — always generate
-  await writeConfig(
-    join(targetPath, 'AGENTS.md'),
-    'AGENTS.md',
-    generateAgentsMd(staticResult, targetPath, techStack, frameworks),
-  );
+  await writeConfig(join(targetPath, 'AGENTS.md'), 'AGENTS.md', agentsContent);
 
   console.log('');
   if (filesCreated > 0) {
-    console.log(chalk.bold(`  ${filesCreated} file${filesCreated > 1 ? 's' : ''} created.`) + ' Review and fill in the TODO sections.');
+    const reviewMsg = claudeAvailable ? ' Review the generated content for accuracy.' : ' Review and fill in the TODO sections.';
+    console.log(chalk.bold(`  ${filesCreated} file${filesCreated > 1 ? 's' : ''} created.`) + reviewMsg);
   } else {
     console.log(chalk.dim('  All config files already exist. Use --overwrite to replace them.'));
   }

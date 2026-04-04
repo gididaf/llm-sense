@@ -1,32 +1,94 @@
-export const SCORING_WEIGHTS = {
-  documentation: 0.17,
-  taskCompletion: 0.18,
+export const SCORING_WEIGHTS: Record<string, number> = {
+  documentation: 0.16,
+  taskCompletion: 0.17,
   fileSizes: 0.10,
   structure: 0.07,
-  modularity: 0.09,
+  modularity: 0.08,
   contextEfficiency: 0.07,
   tokenEfficiency: 0.10,
-  naming: 0.04,
+  naming: 0.03,
   devInfra: 0.05,
   coupling: 0.05,
   security: 0.08,
-} as const;
+  codeQuality: 0.04,
+};
 
-export const SCORING_WEIGHTS_NO_EMPIRICAL = {
-  documentation: 0.22,
+export const SCORING_WEIGHTS_NO_EMPIRICAL: Record<string, number> = {
+  documentation: 0.21,
   taskCompletion: 0,
-  fileSizes: 0.15,
-  structure: 0.09,
-  modularity: 0.11,
+  fileSizes: 0.14,
+  structure: 0.08,
+  modularity: 0.10,
   contextEfficiency: 0.10,
   tokenEfficiency: 0,
-  naming: 0.06,
+  naming: 0.05,
   devInfra: 0.07,
   coupling: 0.06,
-  security: 0.14,
-} as const;
+  security: 0.13,
+  codeQuality: 0.06,
+};
 
-export const SCORING_VERSION = '1.0.0';
+export const SCORING_VERSION = '1.1.0';
+
+// ─── Custom Scoring Profiles ───────────────────────────
+
+export const SCORING_PROFILES: Record<string, Record<string, number>> = {
+  default: SCORING_WEIGHTS,
+  'static-only': SCORING_WEIGHTS_NO_EMPIRICAL,
+
+  strict: {
+    documentation: 0.19,
+    taskCompletion: 0.14,
+    fileSizes: 0.10,
+    structure: 0.07,
+    modularity: 0.09,
+    contextEfficiency: 0.07,
+    tokenEfficiency: 0.07,
+    naming: 0.04,
+    devInfra: 0.05,
+    coupling: 0.05,
+    security: 0.07,
+    codeQuality: 0.06,
+  },
+
+  docs: {
+    documentation: 0.33,
+    taskCompletion: 0.14,
+    fileSizes: 0.07,
+    structure: 0.04,
+    modularity: 0.06,
+    contextEfficiency: 0.05,
+    tokenEfficiency: 0.07,
+    naming: 0.03,
+    devInfra: 0.04,
+    coupling: 0.04,
+    security: 0.06,
+    codeQuality: 0.07,
+  },
+
+  security: {
+    documentation: 0.11,
+    taskCompletion: 0.11,
+    fileSizes: 0.07,
+    structure: 0.05,
+    modularity: 0.07,
+    contextEfficiency: 0.06,
+    tokenEfficiency: 0.07,
+    naming: 0.04,
+    devInfra: 0.06,
+    coupling: 0.05,
+    security: 0.24,
+    codeQuality: 0.07,
+  },
+};
+
+// ─── Fixed Cost Estimates for Auto-Improve ──────────────
+
+export const COST_ESTIMATES = {
+  structuredCall: 0.10,  // callClaudeStructured
+  agentCall: 0.30,       // callClaude (full agent mode)
+  staticAnalysis: 0.00,  // free (no LLM)
+};
 
 export const IGNORED_DIRS = new Set([
   'node_modules',

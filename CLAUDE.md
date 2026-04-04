@@ -4,16 +4,17 @@
 
 A 7-phase CLI pipeline that analyzes codebase LLM-friendliness:
 
-1. **Static Analysis** — 10 analyzers scan files/dirs without LLM calls (free, ~400ms)
+1. **Static Analysis** — 11 analyzers scan files/dirs without LLM calls (free, ~400ms)
 2. **LLM Understanding** — Claude Code CLI with `--json-schema` produces structured codebase profile
 3. **Task Generation** — Claude generates synthetic bugs + features tailored to the codebase
 4. **Empirical Testing** — Tasks run in parallel across isolated git worktrees, with correctness verification
-5. **Scoring** — Weighted aggregation across 11 categories → 0-100 score
-6. **Report Generation** — Markdown/JSON/summary report with self-contained LLM-executable improvement tasks
+5. **Scoring** — Weighted aggregation across 12 categories → 0-100 score (with custom profile support)
+6. **Report Generation** — Markdown/JSON/summary report with self-contained LLM-executable improvement tasks + context window profiling
 7. **Auto-Fix** — Applies recommendations via Claude Code in isolated worktrees, re-scores, merges if improved
+7b. **Auto-Improve** — Iterative fix loop targeting a specific score (`--auto-improve --target 85`)
 
 Phases 2-4 require Claude Code CLI. Phase 1 + 5 + 6 work standalone (`--skip-empirical`).
-Phase 7 requires `--fix` flag and a git repo.
+Phase 7/7b requires `--fix`/`--auto-improve` flag and a git repo.
 
 ## Tech Stack
 
@@ -52,9 +53,10 @@ src/
 │   ├── noise.ts                # Generated files, binaries, lockfiles, vendored file detection
 │   ├── devInfra.ts             # CI config, test commands, linter, pre-commit hooks, type checking detection
 │   ├── security.ts             # Secret detection, .env exposure, sensitive files, lockfile checks
-│   └── duplicates.ts           # Semantic duplicate detection via export name fingerprinting
+│   ├── duplicates.ts           # Semantic duplicate detection via export name fingerprinting
+│   └── languageChecks.ts       # Language-specific regex checks (TS/JS, Python, Go, Rust, Java, Ruby, PHP, Swift)
 ├── mcp/
-│   └── server.ts               # MCP server — manual stdio JSON-RPC, 5 tools for AI agent integration
+│   └── server.ts               # MCP server — manual stdio JSON-RPC, 9 tools for AI agent integration
 ├── commands/
 │   └── init.ts                 # `llm-sense init` — scaffold CLAUDE.md, .cursorrules, copilot-instructions.md, AGENTS.md
 ├── phases/
@@ -63,7 +65,7 @@ src/
 │   ├── llmUnderstanding.ts     # Phase 2: Claude CLI → CodebaseUnderstanding
 │   ├── taskGeneration.ts       # Phase 3: Claude CLI → SyntheticTask[]
 │   ├── empiricalTesting.ts     # Phase 4: parallel task execution in worktrees, correctness verification
-│   ├── scoring.ts              # Phase 5: weighted scoring formulas (11 categories, architecture-aware)
+│   ├── scoring.ts              # Phase 5: weighted scoring formulas (12 categories, architecture-aware, custom profiles)
 │   └── autoFix.ts              # Phase 7: worktree isolation → Claude Code → re-score → patch merge
 └── report/
     ├── generator.ts            # Phase 6: Markdown report formatting + rendering
@@ -94,6 +96,11 @@ src/
 2. Add `program.command('my-command')` in `src/index.ts`
 3. Subcommands use positional args (not `--path`) to avoid conflicts with the parent's `--path` option
 
+**Adding a scoring profile:**
+1. Add the profile to `SCORING_PROFILES` in `src/constants.ts` — weights must sum to 1.0
+2. Or create `.llm-sense/profile.json` in the target repo with `{ "name": "...", "weights": { ... } }`
+3. Use `--profile <name>` to activate
+
 **Output format branching:**
 - When `--format json` or `--format summary`, all progress goes to stderr via the `log` function in runner.ts
 - Only the machine-readable output (JSON blob or summary line) goes to stdout
@@ -106,6 +113,26 @@ src/
 3. For each: create worktree → build prompt from recommendation → call Claude Code → re-score → show diff → merge if improved
 4. Requires git repo (worktree isolation). Non-git repos cannot use `--fix`
 5. `--dry-run` skips the merge step; `--yes` skips confirmation prompts
+
+**Auto-improve loop flow:**
+1. Run full analysis → get score and recommendations
+2. Pick top recommendation by impact
+3. Run `runAutoFix()` with `--yes` (auto-merge if improved)
+4. Re-analyze → get new score → repeat until target reached or budget/iteration cap hit
+5. Skips recommendations that failed in previous iterations
+6. Uses fixed cost estimates per call type ($0.10 structured, $0.30 agent)
+
+**Context window profiling:**
+- `buildContextWindowProfile()` in `fs.ts` computes coverage at 32K/100K/200K/1M tiers
+- Reuses `buildTokenHeatmap()` for total token counts
+- Verdicts: <50% = "Insufficient", 50-80% = "Partial", 80-95% = "Good", 95%+ = "Full"
+- Always shown in reports and available via MCP `get_context_profile` tool
+
+**AI-generated config files:**
+- When Claude CLI is available, `llm-sense init` generates real content via `callClaudeStructured()`
+- Falls back to template-based generation when Claude is not installed
+- Each config file (CLAUDE.md, .cursorrules, copilot-instructions.md, AGENTS.md) gets its own Claude call
+- Uses stratified sample of 30 files + directory summary as context
 
 **Large codebase scaling patterns:**
 - `stratifiedSample()` in `fs.ts` groups files by top-level directory and samples proportionally — use it anywhere you need a representative subset of source files
@@ -160,6 +187,21 @@ npm run build && node dist/index.js --skip-empirical --compare /path/to/other-re
 
 # Test init scaffolding
 npm run build && node dist/index.js init /path/to/repo
+
+# Test PR delta prediction
+npm run build && node dist/index.js --pr-delta --format json --path /path/to/git-repo
+
+# Test auto-improve (dry run)
+npm run build && node dist/index.js --auto-improve --target 80 --max-iterations 3 --dry-run --path /path/to/git-repo
+
+# Test custom scoring profile
+npm run build && node dist/index.js --skip-empirical --profile strict --path /path/to/repo
+
+# Test context window profiling (included in JSON output)
+npm run build && node dist/index.js --skip-empirical --format json --path /path/to/repo | jq '.contextProfile'
+
+# Test language checks (included in JSON output)
+npm run build && node dist/index.js --skip-empirical --format json --path /path/to/repo | jq '.languageChecks'
 ```
 
 ## Build / Run / Deploy
@@ -190,7 +232,13 @@ npm publish          # publish to npm
 - **Token heatmap uses byte-based estimation:** Tokens are estimated as `bytes / 4` — this is rough but avoids a tokenizer dependency. Actual token counts may vary by 20-40% depending on code density.
 - **Security scanning skips test files:** The secret detection regex skips files in test/fixture/mock/example directories to avoid false positives from test fixtures. Only the first 16KB of each file is scanned.
 - **Scoring version tracking:** History entries include `scoringVersion` starting from v0.9.0. The trend chart shows version boundaries. Old entries without a version are treated as pre-0.9.0.
-- **Init command generates all files by default:** `llm-sense init` now generates CLAUDE.md, .cursorrules, copilot-instructions.md, and AGENTS.md. Files that already exist are skipped. Use `--overwrite` to replace existing files.
+- **Init command generates all files by default:** `llm-sense init` now generates CLAUDE.md, .cursorrules, copilot-instructions.md, and AGENTS.md. Files that already exist are skipped. Use `--overwrite` to replace existing files. When Claude CLI is available, AI-powered generation produces real content instead of templates.
+- **Auto-improve budget tracking is approximate:** Cost tracking uses fixed estimates ($0.10 for structured calls, $0.30 for agent mode). Actual costs may vary by 2-3x depending on codebase size.
+- **Custom profiles must sum to 1.0:** Profile weights that don't sum to 1.0 will produce a warning but still work (scores will be scaled up/down proportionally).
+- **Language checks exclude test files from penalties:** Test/spec/fixture files are scanned but their findings don't count toward the penalty score. This avoids penalizing test fixtures that intentionally use `any`, `unwrap()`, etc.
+- **PR delta requires git history:** `--pr-delta` needs at least one previous score in `.llm-sense/history.json` to compute a delta. On first run, it shows the full score with delta 0.
+- **Trend chart profiles:** History entries include profile name. The `--trend` chart shows scores from all profiles intermixed — compare scores from the same profile only.
+- **Context window token estimates are rough:** Tokens are estimated as `bytes / 4`. Actual token counts vary by 20-40% depending on code density. The profiling is directionally accurate but not precise.
 
 ## Environment Setup
 

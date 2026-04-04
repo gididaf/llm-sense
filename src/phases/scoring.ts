@@ -1,5 +1,7 @@
-import { SCORING_WEIGHTS, SCORING_WEIGHTS_NO_EMPIRICAL } from '../constants.js';
-import type { StaticAnalysisResult, TaskExecutionResult, CategoryScore } from '../types.js';
+import { SCORING_WEIGHTS, SCORING_WEIGHTS_NO_EMPIRICAL, SCORING_PROFILES } from '../constants.js';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import type { StaticAnalysisResult, TaskExecutionResult, CategoryScore, LanguageCheckResult } from '../types.js';
 
 function clamp(value: number, min: number = 0, max: number = 100): number {
   return Math.round(Math.max(min, Math.min(max, value)));
@@ -470,29 +472,88 @@ export function scoreSecurity(s: StaticAnalysisResult['security']): CategoryScor
   return { name: 'Security', score, weight: 0, findings, recommendations };
 }
 
+export function scoreCodeQuality(languageChecks?: LanguageCheckResult[]): CategoryScore {
+  if (!languageChecks || languageChecks.length === 0) {
+    return { name: 'Code Quality', score: 100, weight: 0, findings: ['No language-specific checks applicable'], recommendations: [] };
+  }
+
+  // Start at 100, subtract total penalties across all languages
+  let totalPenalty = 0;
+  const findings: string[] = [];
+  const recommendations: string[] = [];
+
+  for (const lc of languageChecks) {
+    if (lc.totalPenalty > 0) {
+      totalPenalty += lc.totalPenalty;
+      findings.push(`${lc.language}: -${lc.totalPenalty} pts across ${lc.checks.filter(c => c.occurrences > 0).length} check(s)`);
+    }
+
+    for (const check of lc.checks) {
+      if (check.occurrences > 0 && check.penalty > 0) {
+        const applied = Math.min(check.occurrences * check.penalty, check.cap);
+        recommendations.push(`Fix ${check.occurrences} ${check.name} issue(s) in ${lc.language} files (-${applied} pts)`);
+      } else if (check.occurrences > 0) {
+        findings.push(`${lc.language}: ${check.occurrences} ${check.name} finding(s) (informational)`);
+      }
+    }
+  }
+
+  const score = clamp(100 - totalPenalty);
+  if (totalPenalty === 0) {
+    findings.push('No language-specific anti-patterns detected');
+  }
+
+  return { name: 'Code Quality', score, weight: 0, findings, recommendations };
+}
+
+// Load a custom scoring profile from .llm-sense/profile.json
+export async function loadProfile(targetPath: string, profileName: string): Promise<Record<string, number> | null> {
+  // Check built-in profiles first
+  if (SCORING_PROFILES[profileName]) {
+    return SCORING_PROFILES[profileName];
+  }
+
+  // Try loading from file
+  try {
+    const profilePath = join(targetPath, '.llm-sense', 'profile.json');
+    const content = await readFile(profilePath, 'utf-8');
+    const profile = JSON.parse(content);
+    if (profile.weights && typeof profile.weights === 'object') {
+      const sum = Object.values(profile.weights as Record<string, number>).reduce((a: number, b: number) => a + b, 0);
+      if (Math.abs(sum - 1.0) > 0.01) {
+        console.error(`Warning: Profile weights sum to ${sum.toFixed(2)}, expected 1.0`);
+      }
+      return profile.weights;
+    }
+  } catch {}
+  return null;
+}
+
 export function computeScores(
   staticResult: StaticAnalysisResult,
   taskResults: TaskExecutionResult[],
   skipEmpirical: boolean,
+  profileWeights?: Record<string, number>,
 ): { categories: CategoryScore[]; overallScore: number; grade: string } {
-  const weights = skipEmpirical ? SCORING_WEIGHTS_NO_EMPIRICAL : SCORING_WEIGHTS;
+  const weights = profileWeights ?? (skipEmpirical ? SCORING_WEIGHTS_NO_EMPIRICAL : SCORING_WEIGHTS);
 
   const categories: CategoryScore[] = [
-    { ...scoreDocumentation(staticResult.documentation), weight: weights.documentation },
-    { ...scoreFileSizes(staticResult.fileSizes), weight: weights.fileSizes },
-    { ...scoreStructure(staticResult.directoryStructure, staticResult.fileSizes.totalFiles), weight: weights.structure },
-    { ...scoreModularity(staticResult.modularity, staticResult.documentation), weight: weights.modularity },
-    { ...scoreContextEfficiency(staticResult.noise), weight: weights.contextEfficiency },
-    { ...scoreNaming(staticResult.naming), weight: weights.naming },
-    { ...scoreCoupling(staticResult.imports, staticResult.fragmentationRatio, staticResult.duplicates), weight: weights.coupling },
-    { ...scoreDevInfra(staticResult.devInfra), weight: weights.devInfra },
-    { ...scoreSecurity(staticResult.security), weight: weights.security },
+    { ...scoreDocumentation(staticResult.documentation), weight: weights.documentation ?? 0 },
+    { ...scoreFileSizes(staticResult.fileSizes), weight: weights.fileSizes ?? 0 },
+    { ...scoreStructure(staticResult.directoryStructure, staticResult.fileSizes.totalFiles), weight: weights.structure ?? 0 },
+    { ...scoreModularity(staticResult.modularity, staticResult.documentation), weight: weights.modularity ?? 0 },
+    { ...scoreContextEfficiency(staticResult.noise), weight: weights.contextEfficiency ?? 0 },
+    { ...scoreNaming(staticResult.naming), weight: weights.naming ?? 0 },
+    { ...scoreCoupling(staticResult.imports, staticResult.fragmentationRatio, staticResult.duplicates), weight: weights.coupling ?? 0 },
+    { ...scoreDevInfra(staticResult.devInfra), weight: weights.devInfra ?? 0 },
+    { ...scoreSecurity(staticResult.security), weight: weights.security ?? 0 },
+    { ...scoreCodeQuality(staticResult.languageChecks), weight: weights.codeQuality ?? 0 },
   ];
 
   if (!skipEmpirical) {
     categories.push(
-      { ...scoreTaskCompletion(taskResults), weight: weights.taskCompletion },
-      { ...scoreTokenEfficiency(taskResults, staticResult.fileSizes.totalFiles), weight: weights.tokenEfficiency },
+      { ...scoreTaskCompletion(taskResults), weight: weights.taskCompletion ?? 0 },
+      { ...scoreTokenEfficiency(taskResults, staticResult.fileSizes.totalFiles), weight: weights.tokenEfficiency ?? 0 },
     );
   }
 

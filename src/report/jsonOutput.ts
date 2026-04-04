@@ -1,3 +1,4 @@
+import { SCORING_VERSION } from '../constants.js';
 import type { FinalReport } from '../types.js';
 
 export interface LlmSenseJsonOutput {
@@ -48,6 +49,19 @@ export interface LlmSenseJsonOutput {
     score: number;
     findings: Array<{ check: string; severity: string; detail: string; pointsDeducted: number }>;
   };
+  contextProfile?: {
+    totalSourceTokens: number;
+    tiers: Array<{ windowSize: number; label: string; coverage: number; verdict: string }>;
+    recommendedMinimum: string;
+    bestExperience: string;
+    topConsumers: Array<{ path: string; percentage: number; tokens: number }>;
+  };
+  languageChecks?: Array<{
+    language: string;
+    totalPenalty: number;
+    filesScanned: number;
+    checks: Array<{ name: string; occurrences: number; penalty: number }>;
+  }>;
   meta: {
     duration: number;
     claudeModel: string;
@@ -82,7 +96,7 @@ export function buildJsonOutput(
   }
 
   return {
-    version: '1.0.0',
+    version: '1.3.0',
     timestamp: report.generatedAt,
     target: report.targetPath,
     score: report.overallScore,
@@ -111,12 +125,23 @@ export function buildJsonOutput(
       score: report.staticAnalysis.security.score,
       findings: report.staticAnalysis.security.findings,
     },
+    contextProfile: report.staticAnalysis.contextProfile ?? undefined,
+    languageChecks: report.staticAnalysis.languageChecks?.map(lc => ({
+      language: lc.language,
+      totalPenalty: lc.totalPenalty,
+      filesScanned: lc.filesScanned,
+      checks: lc.checks.filter(c => c.occurrences > 0).map(c => ({
+        name: c.name,
+        occurrences: c.occurrences,
+        penalty: Math.min(c.occurrences * c.penalty, c.cap),
+      })),
+    })).filter(lc => lc.checks.length > 0) ?? undefined,
     empirical,
     meta: {
       duration: report.totalDurationMs,
       claudeModel: model ?? 'default',
       mode,
-      scoringVersion: '0.9.0',
+      scoringVersion: SCORING_VERSION,
     },
   };
 }

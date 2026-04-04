@@ -52,3 +52,18 @@ export async function gitLsFiles(cwd: string): Promise<string[]> {
     return [];
   }
 }
+
+// Returns files changed between current HEAD and the merge base with a branch.
+// Falls back to HEAD~1 if no base branch can be determined.
+export async function gitChangedFiles(cwd: string, baseBranch?: string): Promise<string[]> {
+  try {
+    // Try to find merge base with default branch
+    const base = baseBranch ?? 'main';
+    const mergeBase = await exec('git', ['merge-base', base, 'HEAD'], cwd).catch(() => null);
+    const ref = mergeBase ?? 'HEAD~1';
+    const output = await exec('git', ['diff', '--name-only', ref], cwd);
+    return output ? output.split('\n').filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}

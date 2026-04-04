@@ -68,6 +68,33 @@ export function generateReport(report: FinalReport): string {
     lines.push('');
   }
 
+  // Context Window Profile — always shown
+  const contextProfile = report.staticAnalysis.contextProfile;
+  if (contextProfile) {
+    lines.push('### Context Window Profile');
+    lines.push('');
+    lines.push(`Total source tokens (estimated): ~${contextProfile.totalSourceTokens.toLocaleString()}`);
+    lines.push('');
+    lines.push('| Context Window | Coverage | Verdict |');
+    lines.push('|----------------|----------|---------|');
+    for (const tier of contextProfile.tiers) {
+      lines.push(`| ${tier.label} | ${tier.coverage}% | ${tier.verdict} |`);
+    }
+    lines.push('');
+    lines.push(`**Recommended minimum:** ${contextProfile.recommendedMinimum}`);
+    lines.push(`**Best experience:** ${contextProfile.bestExperience}`);
+    lines.push('');
+    if (contextProfile.topConsumers.length > 0) {
+      lines.push('Top context consumers:');
+      for (const c of contextProfile.topConsumers) {
+        lines.push(`  ${c.path.padEnd(25)} ${c.percentage.toFixed(1)}% (${c.tokens.toLocaleString()} tokens)`);
+      }
+      lines.push('');
+    }
+    lines.push('---');
+    lines.push('');
+  }
+
   // Config Drift — show if any stale references found
   const drift = report.staticAnalysis.documentation.configDrift;
   if (drift.staleReferences.length > 0) {

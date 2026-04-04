@@ -10,7 +10,9 @@ import { isGitRepo } from '../core/git.js';
 import { callClaude } from '../core/claude.js';
 import { runStaticAnalysis } from './staticAnalysis.js';
 import { computeScores } from './scoring.js';
-import type { ExecutableRecommendation, CliOptions } from '../types.js';
+import { buildExecutableRecommendations } from '../report/recommendations.js';
+import { COST_ESTIMATES } from '../constants.js';
+import type { ExecutableRecommendation, CliOptions, AutoImproveResult } from '../types.js';
 
 export interface FixResult {
   recommendation: ExecutableRecommendation;
@@ -298,6 +300,88 @@ export async function runAutoFix(
   }
 
   return results;
+}
+
+export async function runAutoImprove(
+  options: CliOptions,
+  startScore: number,
+  log: (...args: unknown[]) => void,
+): Promise<AutoImproveResult> {
+  const targetScore = options.target!;
+  const maxIterations = options.maxIterations;
+  const maxBudget = options.maxTotalBudget;
+
+  let currentScore = startScore;
+  let totalCostUsd = 0;
+  let iteration = 0;
+  const skippedRecIds = new Set<string>();
+  const iterations: AutoImproveResult['iterations'] = [];
+
+  while (currentScore < targetScore && iteration < maxIterations && totalCostUsd < maxBudget) {
+    // Re-analyze to get fresh recommendations
+    const { result: staticResult } = await runStaticAnalysis(options.path, false);
+    const { categories } = computeScores(staticResult, [], true);
+    const recommendations = buildExecutableRecommendations(categories, staticResult, null)
+      .filter(r => r.estimatedScoreImpact > 0 && !skippedRecIds.has(r.id));
+
+    if (recommendations.length === 0) {
+      log(chalk.dim('  No more improvements available'));
+      break;
+    }
+
+    // Pick top recommendation by ROI (impact first)
+    const topRec = recommendations[0];
+    iteration++;
+
+    log(chalk.yellow(`  [${iteration}/${maxIterations}]`) + ` ${topRec.title}`);
+
+    const fixResults = await runAutoFix(
+      { ...options, fix: true, fixCount: 1, fixId: topRec.id, yes: true, fixContinue: true },
+      recommendations,
+      currentScore,
+      (...args) => {}, // suppress inner logging
+    );
+
+    const result = fixResults[0];
+    const iterCost = result ? result.costUsd : COST_ESTIMATES.agentCall;
+    totalCostUsd += iterCost;
+
+    if (!result || !result.success) {
+      log(chalk.red(`    Failed — skipping`));
+      skippedRecIds.add(topRec.id);
+      iterations.push({
+        index: iteration,
+        recommendation: topRec.title,
+        delta: 0,
+        costUsd: iterCost,
+        success: false,
+      });
+      continue;
+    }
+
+    const delta = result.scoreAfter - currentScore;
+    currentScore = result.scoreAfter;
+
+    log(chalk.green(`    ${result.scoreBefore} → ${result.scoreAfter} (+${delta}) | $${iterCost.toFixed(2)}`));
+
+    iterations.push({
+      index: iteration,
+      recommendation: topRec.title,
+      delta,
+      costUsd: iterCost,
+      success: true,
+    });
+  }
+
+  return {
+    startScore,
+    finalScore: currentScore,
+    targetScore,
+    iterations,
+    totalCostUsd,
+    totalIterations: iteration,
+    reachedTarget: currentScore >= targetScore,
+  };
 }
 
 export function formatFixResults(results: FixResult[], log: (...args: unknown[]) => void): void {

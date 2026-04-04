@@ -1,7 +1,7 @@
 import { access, readdir, stat, readFile } from 'node:fs/promises';
 import { join, extname, basename, relative } from 'node:path';
 import { IGNORED_DIRS, BINARY_EXTENSIONS, SOURCE_EXTENSIONS } from '../constants.js';
-import type { TokenHeatmap, TokenHeatmapEntry } from '../types.js';
+import type { TokenHeatmap, TokenHeatmapEntry, ContextWindowProfile, ContextWindowTier } from '../types.js';
 
 export interface WalkEntry {
   path: string;
@@ -308,6 +308,51 @@ export function buildTokenHeatmap(entries: WalkEntry[]): TokenHeatmap {
     entries: heatmapEntries,
     total: totalTokens,
     totalFiles: sourceFiles.length,
+  };
+}
+
+// Builds a context window profile: estimates what percentage of the codebase
+// fits in various LLM context windows (32K, 100K, 200K, 1M).
+export function buildContextWindowProfile(heatmap: TokenHeatmap): ContextWindowProfile {
+  const windowSizes = [
+    { size: 32_000, label: '32K tokens' },
+    { size: 100_000, label: '100K tokens' },
+    { size: 200_000, label: '200K tokens' },
+    { size: 1_000_000, label: '1M tokens' },
+  ];
+
+  const totalTokens = heatmap.total;
+  const tiers: ContextWindowTier[] = windowSizes.map(({ size, label }) => {
+    const coverage = totalTokens > 0
+      ? Math.min(100, Math.round((size / totalTokens) * 100))
+      : 100;
+    let verdict: ContextWindowTier['verdict'];
+    if (coverage >= 95) verdict = 'Full';
+    else if (coverage >= 80) verdict = 'Good';
+    else if (coverage >= 50) verdict = 'Partial';
+    else verdict = 'Insufficient';
+    return { windowSize: size, label, coverage, verdict };
+  });
+
+  // Find recommended minimum: smallest tier with "Good" or better
+  const goodTier = tiers.find(t => t.verdict === 'Good' || t.verdict === 'Full');
+  const recommendedMinimum = goodTier?.label ?? '1M tokens';
+  const fullTier = tiers.find(t => t.verdict === 'Full');
+  const bestExperience = fullTier?.label ?? '1M tokens';
+
+  // Top consumers from heatmap (top 5)
+  const topConsumers = heatmap.entries.slice(0, 5).map(e => ({
+    path: e.path,
+    percentage: e.percentage,
+    tokens: e.tokens,
+  }));
+
+  return {
+    totalSourceTokens: totalTokens,
+    tiers,
+    recommendedMinimum,
+    bestExperience,
+    topConsumers,
   };
 }
 
