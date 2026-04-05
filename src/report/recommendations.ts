@@ -501,6 +501,31 @@ export function buildExecutableRecommendations(
     });
   }
 
+  // Code Quality: empty catch blocks
+  const emptyCatches = staticAnalysis.astAnalysis?.emptyCatchBlocks ?? 0;
+  if (emptyCatches >= 5) {
+    recs.push({
+      id: `rec-${idCounter++}`,
+      title: `Fix ${emptyCatches} empty catch blocks`,
+      priority: 2,
+      estimatedScoreImpact: Math.min(Math.round(emptyCatches * 2 * 0.06), 3),
+      category: 'Code Quality',
+      currentState: `${emptyCatches} empty catch blocks silently swallow errors, making debugging harder for LLMs. Each costs 2 penalty points (capped at 10).`,
+      desiredEndState: 'All catch blocks either log the error, re-throw, or have a comment explaining why the error is intentionally ignored.',
+      filesToModify: [],
+      implementationSteps: [
+        'For detection/feature-checking catches (e.g., fs.access): add a brief comment like `// expected: feature not available`',
+        'For error-handling catches that should log: add `console.error(error)` or project logger',
+        'For catches that should re-throw: add `throw error` or wrap and re-throw',
+        'The AST checker counts catch blocks with zero statements — a single comment-only catch still counts as empty; add a minimal statement like `void 0` or a variable assignment if a comment alone is desired',
+      ],
+      acceptanceCriteria: [
+        'No empty catch blocks remain (or they contain at least a statement)',
+      ],
+      context: 'Empty catch blocks hide errors from LLMs debugging test failures or tracing control flow. They also indicate potential unhandled error paths.',
+    });
+  }
+
   // Token heatmap recommendations
   // Skip directories that are the sole source directory (e.g., src/ at 95%+ when there's only 1-2 top-level dirs)
   // — telling the user to "reduce src/" is meaningless when src/ IS the codebase.
