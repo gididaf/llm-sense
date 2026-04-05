@@ -128,35 +128,37 @@ export function buildExecutableRecommendations(
     const largeFiles = staticAnalysis.fileSizes.largestFiles.filter(f => f.lines > 500);
     const largeCodeFiles = largeFiles.filter(f => f.classification === 'code');
 
-    // Batched recommendation: split ALL large code files in one task.
+    // Batched recommendation: split the top large code files in one task.
     // This moves P90 significantly more than splitting one file at a time.
-    if (largeCodeFiles.length >= 2) {
-      const giantCount = largeCodeFiles.filter(f => f.lines > 1000).length;
+    // Cap at 3 files to stay within Claude Code's budget/timeout limits.
+    const batchFiles = largeCodeFiles.slice(0, 3);
+    if (batchFiles.length >= 2) {
+      const giantCount = batchFiles.filter(f => f.lines > 1000).length;
       const totalGiantPenalty = Math.min(giantCount * 5, 30);
       const estimatedImpact = Math.min(
-        Math.round(totalGiantPenalty * 0.14 + largeCodeFiles.length * 1.5), 12,
+        Math.round(totalGiantPenalty * 0.14 + batchFiles.length * 1.5), 12,
       );
       recs.push({
         id: `rec-${idCounter++}`,
-        title: `Split ${largeCodeFiles.length} large code files to reduce P90 file size`,
+        title: `Split ${batchFiles.length} large code files to reduce P90 file size`,
         priority: 1,
         estimatedScoreImpact: estimatedImpact,
         category: 'File Sizes',
-        currentState: `${largeCodeFiles.length} code files exceed 500 lines (P90: ${staticAnalysis.fileSizes.p90Lines} lines). Individual splits barely move P90; batching moves it substantially.`,
+        currentState: `${batchFiles.length} code files exceed 500 lines (P90: ${staticAnalysis.fileSizes.p90Lines} lines). Individual splits barely move P90; batching moves it substantially.`,
         desiredEndState: `All code files are under 500 lines. Target P90 ≤ 200 lines.`,
-        filesToModify: largeCodeFiles.map(f => ({
+        filesToModify: batchFiles.map(f => ({
           path: f.path,
           action: `Split (${f.lines.toLocaleString()} lines) into focused modules under 300 lines each`,
         })),
         implementationSteps: [
-          ...largeCodeFiles.map(f =>
+          ...batchFiles.map(f =>
             `Split \`${f.path}\` (${f.lines.toLocaleString()} lines): identify logical groupings, create new files for each group, update imports`,
           ),
           'Create barrel exports (index.ts) where needed to maintain backward compatibility',
           'Verify no broken imports across the entire project after all splits',
         ],
         acceptanceCriteria: [
-          ...largeCodeFiles.map(f => `\`${f.path}\` is removed or under 300 lines`),
+          ...batchFiles.map(f => `\`${f.path}\` is removed or under 300 lines`),
           'No broken imports or references',
         ],
         context: `File Sizes scoring: P90 (40%) + median (40%) + 20 - giantPenalty (5 per 1000+ line file, cap 30). Splitting all large files together moves P90 substantially and eliminates giant file penalties.`,

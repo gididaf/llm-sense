@@ -206,13 +206,17 @@ export async function runAutoFix(
       // and need higher timeout/budget defaults than the CLI defaults of 300s/$1.00
       log(chalk.dim('  │  Running Claude Code...'));
       const prompt = buildFixPrompt(rec);
-      const fixBudget = Math.max(options.maxBudgetPerTask, 5.00);
+      // Batched tasks (multiple files) need more budget than single-file tasks
+      const isBatch = rec.filesToModify.length > 2;
+      const fixBudget = Math.max(options.maxBudgetPerTask, isBatch ? 10.00 : 5.00);
+      // Batch tasks (multi-file splits) need more time than single-file fixes
+      const fixTimeout = isBatch ? 900_000 : 600_000;
       const claudeResult = await callClaude({
         prompt,
         cwd: isolation.workDir,
         maxTurns: options.maxTurnsPerTask,
         maxBudgetUsd: fixBudget,
-        timeout: 600_000,
+        timeout: fixTimeout,
         model: options.model,
       });
 
