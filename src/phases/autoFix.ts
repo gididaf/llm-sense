@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { writeFile, unlink } from 'node:fs/promises';
+import { readFile, writeFile, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -103,6 +103,40 @@ async function getDiffPatch(cwd: string): Promise<string> {
   return exec('git', ['diff', '--cached', 'HEAD'], cwd).catch(() => '');
 }
 
+async function detectBuildCommand(cwd: string): Promise<string | null> {
+  try {
+    const pkg = JSON.parse(await readFile(join(cwd, 'package.json'), 'utf-8'));
+    const scripts = pkg.scripts ?? {};
+    // Check common build/check scripts in order of preference
+    for (const name of ['build', 'typecheck', 'check', 'tsc']) {
+      if (scripts[name]) return `npm run ${name}`;
+    }
+  } catch {}
+  return null;
+}
+
+async function runBuildValidation(cwd: string, log: (...args: unknown[]) => void): Promise<boolean> {
+  const buildCmd = await detectBuildCommand(cwd);
+  if (!buildCmd) return true; // no build command — skip validation
+
+  // Worktrees don't have node_modules — install deps first if needed
+  try {
+    const pkg = JSON.parse(await readFile(join(cwd, 'package.json'), 'utf-8'));
+    if (pkg.dependencies || pkg.devDependencies) {
+      log(chalk.dim('  │  Installing dependencies in worktree...'));
+      await exec('npm', ['install', '--ignore-scripts'], cwd);
+    }
+  } catch {}
+
+  log(chalk.dim(`  │  Validating build (${buildCmd})...`));
+  try {
+    await exec('sh', ['-c', buildCmd], cwd);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function applyPatch(cwd: string, patch: string): Promise<void> {
   if (!patch.trim()) return;
   const patchFile = join(tmpdir(), `llm-sense-patch-${randomBytes(4).toString('hex')}.diff`);
@@ -168,14 +202,24 @@ export async function runAutoFix(
       log(chalk.dim('  │  Creating worktree...'));
       isolation = await createIsolation(options.path, `fix-${rec.id}`);
 
+      // Score the worktree BEFORE Claude makes changes — the worktree may differ
+      // from the working directory (e.g., uncommitted changes), so we need a
+      // same-baseline comparison to measure Claude's actual impact.
+      const { result: baselineStatic } = await runStaticAnalysis(isolation.workDir, false);
+      const { overallScore: baselineScore } = computeScores(baselineStatic, [], true);
+
       // Run Claude Code in the worktree
+      // Auto-fix tasks (file splits, refactoring) are more complex than empirical tasks
+      // and need higher timeout/budget defaults than the CLI defaults of 300s/$1.00
       log(chalk.dim('  │  Running Claude Code...'));
       const prompt = buildFixPrompt(rec);
+      const fixBudget = Math.max(options.maxBudgetPerTask, 5.00);
       const claudeResult = await callClaude({
         prompt,
         cwd: isolation.workDir,
         maxTurns: options.maxTurnsPerTask,
-        maxBudgetUsd: options.maxBudgetPerTask,
+        maxBudgetUsd: fixBudget,
+        timeout: 600_000,
         model: options.model,
       });
 
@@ -186,8 +230,8 @@ export async function runAutoFix(
         results.push({
           recommendation: rec,
           success: false,
-          scoreBefore: currentScore,
-          scoreAfter: currentScore,
+          scoreBefore: baselineScore,
+          scoreAfter: baselineScore,
           filesModified: [],
           costUsd: claudeResult.costUsd,
           error: 'No changes made',
@@ -198,20 +242,40 @@ export async function runAutoFix(
         continue;
       }
 
-      // Re-score the worktree
+      // Validate build before re-scoring — reject changes that break compilation
+      const buildOk = await runBuildValidation(isolation.workDir, log);
+      if (!buildOk) {
+        log(chalk.red('  │  Build failed — discarding changes'));
+        results.push({
+          recommendation: rec,
+          success: false,
+          scoreBefore: baselineScore,
+          scoreAfter: baselineScore,
+          filesModified: diff.files,
+          costUsd: claudeResult.costUsd,
+          error: 'Build validation failed',
+        });
+        log(chalk.dim('  └─'));
+        log('');
+        if (!options.fixContinue) break;
+        continue;
+      }
+
+      // Re-score the worktree — compare against the WORKTREE baseline,
+      // not the working directory score, to isolate Claude's impact
       log(chalk.dim(`  │  Re-scoring (${diff.files.length} files changed)...`));
       const { result: newStatic } = await runStaticAnalysis(isolation.workDir, false);
       const { overallScore: newScore } = computeScores(newStatic, [], true);
 
-      const delta = newScore - currentScore;
+      const delta = newScore - baselineScore;
       const improved = delta > 0;
 
       if (improved) {
-        log(chalk.green(`  │  Score: ${currentScore} → ${newScore} (+${delta})`));
+        log(chalk.green(`  │  Score: ${baselineScore} → ${newScore} (+${delta})`));
       } else if (delta === 0) {
-        log(chalk.yellow(`  │  Score: ${currentScore} → ${newScore} (no change)`));
+        log(chalk.yellow(`  │  Score: ${baselineScore} → ${newScore} (no change)`));
       } else {
-        log(chalk.red(`  │  Score: ${currentScore} → ${newScore} (${delta})`));
+        log(chalk.red(`  │  Score: ${baselineScore} → ${newScore} (${delta})`));
       }
 
       // Show diff summary
@@ -228,7 +292,7 @@ export async function runAutoFix(
         results.push({
           recommendation: rec,
           success: improved,
-          scoreBefore: currentScore,
+          scoreBefore: baselineScore,
           scoreAfter: newScore,
           filesModified: diff.files,
           costUsd: claudeResult.costUsd,
@@ -238,7 +302,7 @@ export async function runAutoFix(
         results.push({
           recommendation: rec,
           success: false,
-          scoreBefore: currentScore,
+          scoreBefore: baselineScore,
           scoreAfter: newScore,
           filesModified: [],
           costUsd: claudeResult.costUsd,
@@ -260,7 +324,7 @@ export async function runAutoFix(
           results.push({
             recommendation: rec,
             success: true,
-            scoreBefore: currentScore,
+            scoreBefore: baselineScore,
             scoreAfter: newScore,
             filesModified: diff.files,
             costUsd: claudeResult.costUsd,
@@ -271,7 +335,7 @@ export async function runAutoFix(
           results.push({
             recommendation: rec,
             success: false,
-            scoreBefore: currentScore,
+            scoreBefore: baselineScore,
             scoreAfter: newScore,
             filesModified: [],
             costUsd: claudeResult.costUsd,

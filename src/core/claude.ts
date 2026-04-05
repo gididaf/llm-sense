@@ -155,6 +155,9 @@ export async function callClaude(options: ClaudeOptions): Promise<ClaudeResult> 
 
       const timer = setTimeout(() => {
         proc.kill('SIGTERM');
+        // SIGTERM may not reliably kill Claude Code — escalate to SIGKILL after 5s grace
+        const killTimer = setTimeout(() => { proc.kill('SIGKILL'); }, 5000);
+        proc.on('close', () => clearTimeout(killTimer));
         reject(new ClaudeCliError('Claude Code CLI timed out after ' + (timeout / 1000) + 's', stderr));
       }, timeout);
 
