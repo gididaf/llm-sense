@@ -466,6 +466,41 @@ export function buildExecutableRecommendations(
     });
   }
 
+  // Developer Infrastructure recommendations
+  const devInfra = staticAnalysis.devInfra;
+  const missingInfra: string[] = [];
+  if (!devInfra.hasTestCommand) missingInfra.push('test command (add "test" script to package.json or equivalent)');
+  if (!devInfra.hasLinterConfig) missingInfra.push('linter config (create .eslintrc, biome.json, or equivalent)');
+  if (!devInfra.hasPreCommitHooks) missingInfra.push('pre-commit hooks (add .husky/ or .lefthook.yml)');
+  if (!devInfra.hasCi) missingInfra.push('CI configuration (.github/workflows/ or equivalent)');
+  if (!devInfra.hasDevcontainer) missingInfra.push('devcontainer config (.devcontainer/devcontainer.json)');
+  if (!devInfra.hasIssueTemplates) missingInfra.push('issue templates (.github/ISSUE_TEMPLATE/)');
+  if (!devInfra.hasPrTemplate) missingInfra.push('PR template (.github/PULL_REQUEST_TEMPLATE.md)');
+  if (!devInfra.hasContributing) missingInfra.push('CONTRIBUTING.md (at least 20 lines)');
+  if (!devInfra.hasChangelog) missingInfra.push('CHANGELOG.md');
+
+  if (missingInfra.length > 0) {
+    // Each missing item is worth 1-3 raw points, scaled by *5 in scoring
+    const rawPointsGain = missingInfra.length * 2; // conservative estimate
+    const weightedImpact = Math.round(rawPointsGain * 5 * 0.07); // 7% weight
+    recs.push({
+      id: `rec-${idCounter++}`,
+      title: `Add ${missingInfra.length} missing developer infrastructure items`,
+      priority: 1,
+      estimatedScoreImpact: Math.max(weightedImpact, 2),
+      category: 'Developer Infrastructure',
+      currentState: `Developer Infrastructure score is ${devInfra.score * 5}/100. Missing: ${missingInfra.join('; ')}.`,
+      desiredEndState: 'All standard developer infrastructure is in place: CI, tests, linting, hooks, templates, devcontainer.',
+      filesToModify: missingInfra.map(item => ({
+        path: item.split('(')[1]?.replace(')', '').trim() || item,
+        action: `Create ${item.split(' (')[0]}`,
+      })),
+      implementationSteps: missingInfra.map((item, i) => `${i + 1}. Add ${item}`),
+      acceptanceCriteria: missingInfra.map(item => `${item.split(' (')[0]} is present and functional`),
+      context: `Developer Infrastructure affects LLM agent success. CI validates changes, tests verify correctness, linters catch issues, pre-commit hooks prevent regressions. Each missing item costs 5-15 points in the DevInfra category (weight: 7%).`,
+    });
+  }
+
   // Token heatmap recommendations
   // Skip directories that are the sole source directory (e.g., src/ at 95%+ when there's only 1-2 top-level dirs)
   // — telling the user to "reduce src/" is meaningless when src/ IS the codebase.
@@ -510,6 +545,9 @@ export function buildExecutableRecommendations(
 }
 
 function estimateEffort(rec: ExecutableRecommendation): ExecutableRecommendation['estimatedEffort'] {
+  // DevInfra tasks: mostly creating config files
+  if (rec.title.includes('developer infrastructure')) return '30min';
+
   // Documentation tasks: creating files is quick, splitting code is harder
   if (rec.title.includes('Create comprehensive CLAUDE.md')) return '30min';
   if (rec.title.includes('Add README.md')) return '5min';

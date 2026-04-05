@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
-import { readFile, writeFile, unlink } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile, unlink, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import chalk from 'chalk';
@@ -98,11 +98,6 @@ async function getDiffSummary(cwd: string): Promise<{ stat: string; files: strin
   };
 }
 
-async function getDiffPatch(cwd: string): Promise<string> {
-  await exec('git', ['add', '-A'], cwd);
-  return exec('git', ['diff', '--cached', 'HEAD'], cwd).catch(() => '');
-}
-
 async function detectBuildCommand(cwd: string): Promise<string | null> {
   try {
     const pkg = JSON.parse(await readFile(join(cwd, 'package.json'), 'utf-8'));
@@ -137,14 +132,12 @@ async function runBuildValidation(cwd: string, log: (...args: unknown[]) => void
   }
 }
 
-async function applyPatch(cwd: string, patch: string): Promise<void> {
-  if (!patch.trim()) return;
-  const patchFile = join(tmpdir(), `llm-sense-patch-${randomBytes(4).toString('hex')}.diff`);
-  await writeFile(patchFile, patch, 'utf-8');
-  try {
-    await exec('git', ['apply', '--allow-empty', patchFile], cwd);
-  } finally {
-    try { await unlink(patchFile); } catch {}
+async function applyChanges(worktreeDir: string, targetDir: string, files: string[]): Promise<void> {
+  for (const file of files) {
+    const src = join(worktreeDir, file);
+    const dst = join(targetDir, file);
+    await mkdir(dirname(dst), { recursive: true });
+    await copyFile(src, dst);
   }
 }
 
@@ -318,8 +311,7 @@ export async function runAutoFix(
         }
 
         if (shouldMerge) {
-          const patch = await getDiffPatch(isolation.workDir);
-          await applyPatch(options.path, patch);
+          await applyChanges(isolation.workDir, options.path, diff.files);
           log(chalk.green('  │  Changes applied'));
           results.push({
             recommendation: rec,
