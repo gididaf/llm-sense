@@ -147,17 +147,20 @@ src/
 **Auto-fix flow:**
 1. Run normal analysis (Phase 1-5)
 2. Select recommendation(s) via `--fix-id` or `--fix-count`
-3. For each: create worktree → build prompt from recommendation → call Claude Code → re-score → show diff → merge if improved
-4. Requires git repo (worktree isolation). Non-git repos cannot use `--fix`
-5. `--dry-run` skips the merge step; `--yes` skips confirmation prompts
+3. For each: create worktree → score baseline → build prompt from recommendation → call Claude Code → validate build → re-score → show diff → merge if improved
+4. Build validation: detects build command from package.json (`build`, `typecheck`, `check`, `tsc`), installs deps in worktree, runs build before re-scoring. Changes that break compilation are rejected.
+5. Batched recommendations (e.g., multi-file splits) get higher budget ($10) and timeout (15min) vs single-file tasks ($5, 10min)
+6. Requires git repo (worktree isolation). Non-git repos cannot use `--fix`
+7. `--dry-run` skips the merge step; `--yes` skips confirmation prompts
 
 **Auto-improve loop flow:**
 1. Run full analysis → get score and recommendations
-2. Pick top recommendation by impact
-3. Run `runAutoFix()` with `--yes` (auto-merge if improved)
-4. Re-analyze → get new score → repeat until target reached or budget/iteration cap hit
-5. Skips recommendations that failed in previous iterations
-6. Uses fixed cost estimates per call type ($0.10 structured, $0.30 agent)
+2. Sync `currentScore` from the working directory analysis (not worktree scores) to avoid drift
+3. Pick top recommendation by impact
+4. Run `runAutoFix()` with `--yes` (auto-merge if improved)
+5. Re-analyze → get new score → repeat until target reached or budget/iteration cap hit
+6. Skips recommendations that failed in previous iterations
+7. Uses fixed cost estimates per call type ($0.10 structured, $0.30 agent)
 
 **Context window profiling:**
 - `buildContextWindowProfile()` in `fs.ts` computes coverage at 32K/100K/200K/1M tiers
@@ -347,6 +350,9 @@ npm publish          # publish to npm
 - **Call graph is intra-repo only:** The call graph tracks calls between functions defined in the repo. External library calls are not tracked. The "isolated functions" list may include functions called only from tests or via dynamic dispatch.
 - **`web-tree-sitter` ESM import:** Uses `{ Parser, Language }` named exports, not default export. The WASM core is auto-located from the package.
 - **Auto-improve budget tracking is approximate:** Cost tracking uses fixed estimates ($0.10 for structured calls, $0.30 for agent mode). Actual costs may vary by 2-3x depending on codebase size.
+- **Auto-fix build validation:** Changes that break TypeScript compilation are automatically rejected. The build command is detected from package.json (`build`, `typecheck`, `check`, `tsc` scripts in order of preference). Dependencies are installed in the worktree before building.
+- **Batched file-split recommendations cap at 3 files:** Splitting more than 3 files in a single Claude Code session tends to time out (even at 15min). The batch uses $10 budget and 900s timeout vs $5/600s for single-file tasks. Individual per-file recommendations are still generated alongside the batch for `--fix-id` targeting.
+- **Empty catch block scoring:** The AST checker counts truly empty catch blocks (zero statements) but NOT comment-only catches. A catch block with just `// intentionally empty` is considered handled — the comment shows deliberate intent. Only catches with no children at all are penalized.
 - **Custom profiles must sum to 1.0:** Profile weights that don't sum to 1.0 will produce a warning but still work (scores will be scaled up/down proportionally).
 - **Language checks exclude test files from penalties:** Test/spec/fixture files are scanned but their findings don't count toward the penalty score. This avoids penalizing test fixtures that intentionally use `any`, `unwrap()`, etc.
 - **PR delta requires git history:** `--pr-delta` needs at least one previous score in `.llm-sense/history.json` to compute a delta. On first run, it shows the full score with delta 0.
