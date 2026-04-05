@@ -376,7 +376,8 @@ export async function runAutoImprove(
   while (currentScore < targetScore && iteration < maxIterations && totalCostUsd < maxBudget) {
     // Re-analyze to get fresh recommendations
     const { result: staticResult } = await runStaticAnalysis(options.path, false);
-    const { categories } = computeScores(staticResult, [], true);
+    const { categories, overallScore: workingDirScore } = computeScores(staticResult, [], true);
+    currentScore = workingDirScore;
     const recommendations = buildExecutableRecommendations(categories, staticResult, null)
       .filter(r => r.estimatedScoreImpact > 0 && !skippedRecIds.has(r.id));
 

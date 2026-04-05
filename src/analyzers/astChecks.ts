@@ -155,8 +155,6 @@ function countEmptyCatchBlocks(tree: TreeSitterTree, language: string): number {
     const body = c.namedChildren.find(n =>
       n.type === 'statement_block' || n.type === 'block' || n.type === 'body');
     if (body && body.namedChildCount === 0) empty++;
-    // Also count single-comment catch blocks as "empty"
-    if (body && body.namedChildCount === 1 && body.namedChildren[0].type === 'comment') empty++;
   }
   return empty;
 }

@@ -126,6 +126,43 @@ export function buildExecutableRecommendations(
   const fileSizeCat = categories.find(c => c.name === 'File Sizes');
   if (fileSizeCat && staticAnalysis.fileSizes.largestFiles.length > 0) {
     const largeFiles = staticAnalysis.fileSizes.largestFiles.filter(f => f.lines > 500);
+    const largeCodeFiles = largeFiles.filter(f => f.classification === 'code');
+
+    // Batched recommendation: split ALL large code files in one task.
+    // This moves P90 significantly more than splitting one file at a time.
+    if (largeCodeFiles.length >= 2) {
+      const giantCount = largeCodeFiles.filter(f => f.lines > 1000).length;
+      const totalGiantPenalty = Math.min(giantCount * 5, 30);
+      const estimatedImpact = Math.min(
+        Math.round(totalGiantPenalty * 0.14 + largeCodeFiles.length * 1.5), 12,
+      );
+      recs.push({
+        id: `rec-${idCounter++}`,
+        title: `Split ${largeCodeFiles.length} large code files to reduce P90 file size`,
+        priority: 1,
+        estimatedScoreImpact: estimatedImpact,
+        category: 'File Sizes',
+        currentState: `${largeCodeFiles.length} code files exceed 500 lines (P90: ${staticAnalysis.fileSizes.p90Lines} lines). Individual splits barely move P90; batching moves it substantially.`,
+        desiredEndState: `All code files are under 500 lines. Target P90 ≤ 200 lines.`,
+        filesToModify: largeCodeFiles.map(f => ({
+          path: f.path,
+          action: `Split (${f.lines.toLocaleString()} lines) into focused modules under 300 lines each`,
+        })),
+        implementationSteps: [
+          ...largeCodeFiles.map(f =>
+            `Split \`${f.path}\` (${f.lines.toLocaleString()} lines): identify logical groupings, create new files for each group, update imports`,
+          ),
+          'Create barrel exports (index.ts) where needed to maintain backward compatibility',
+          'Verify no broken imports across the entire project after all splits',
+        ],
+        acceptanceCriteria: [
+          ...largeCodeFiles.map(f => `\`${f.path}\` is removed or under 300 lines`),
+          'No broken imports or references',
+        ],
+        context: `File Sizes scoring: P90 (40%) + median (40%) + 20 - giantPenalty (5 per 1000+ line file, cap 30). Splitting all large files together moves P90 substantially and eliminates giant file penalties.`,
+      });
+    }
+
     for (const file of largeFiles.slice(0, 5)) {
       if (file.classification === 'vendored') {
         // Vendored/third-party file — recommend exclusion, not splitting
@@ -517,10 +554,10 @@ export function buildExecutableRecommendations(
         'For detection/feature-checking catches (e.g., fs.access): add a brief comment like `// expected: feature not available`',
         'For error-handling catches that should log: add `console.error(error)` or project logger',
         'For catches that should re-throw: add `throw error` or wrap and re-throw',
-        'The AST checker counts catch blocks with zero statements — a single comment-only catch still counts as empty; add a minimal statement like `void 0` or a variable assignment if a comment alone is desired',
+        'For intentionally ignored errors: add a comment explaining why (e.g., `// expected: optional feature not available`)',
       ],
       acceptanceCriteria: [
-        'No empty catch blocks remain (or they contain at least a statement)',
+        'All catch blocks either handle the error, re-throw, or have a comment explaining the intentional ignore',
       ],
       context: 'Empty catch blocks hide errors from LLMs debugging test failures or tracing control flow. They also indicate potential unhandled error paths.',
     });
@@ -580,6 +617,9 @@ function estimateEffort(rec: ExecutableRecommendation): ExecutableRecommendation
   if (rec.title.includes('inline comments')) return '2hr';
   if (rec.title.includes('Configure LLM context exclusions')) return '5min';
   if (rec.title.includes('naming inconsistencies')) return '30min';
+
+  // Batched file-split: multiple files in one pass
+  if (rec.title.includes('large code files to reduce P90')) return 'half-day';
 
   // File splitting tasks scale with file size and complexity
   if (rec.title.startsWith('Split')) {
