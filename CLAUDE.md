@@ -103,7 +103,7 @@ src/
 ## Common Patterns
 
 **Adding a new static analyzer:**
-1. Create `src/analyzers/my-analyzer.ts` exporting a function that takes `WalkEntry[]` and returns a typed result
+1. Create `src/analyzers/<name>.ts` exporting a function that takes `WalkEntry[]` and returns a typed result
 2. Add the result type to `src/types.ts` and include it in `StaticAnalysisResult`
 3. Call it from `src/phases/staticAnalysis.ts`
 4. Add a scoring function in `src/phases/scoring.ts`
@@ -116,8 +116,8 @@ src/
 3. Pass it through `runner.ts`
 
 **Adding a new subcommand:**
-1. Create `src/commands/my-command.ts` with the handler function
-2. Add `program.command('my-command')` in `src/index.ts` with `.passThroughOptions()` to avoid conflicts with parent options
+1. Create `src/commands/<name>.ts` with the handler function
+2. Add `program.command('<name>')` in `src/index.ts` with `.passThroughOptions()` to avoid conflicts with parent options
 3. Subcommands use positional args (not `--path`) to avoid conflicts with the parent's `--path` option
 
 **Adding a custom LLM lint rule:**
@@ -330,9 +330,9 @@ npm publish          # publish to npm
 - **Exit codes:** 0 = success, 1 = score below `--min-score` threshold, 2 = analysis failure (path not found, Claude CLI error, etc.).
 - **Watch mode platform support:** `fs.watch` with `recursive: true` may not work on all platforms. macOS and Windows support it natively; Linux may require `inotify` kernel support.
 - **Auto-fix worktree cleanup:** Auto-fix always cleans up worktrees, even on failure. If the process is killed mid-fix, stale worktrees in `/tmp/llm-sense-wt-*` may need manual cleanup.
-- **Config drift false positives:** The drift detector only matches paths containing `/` (directory separators) to avoid flagging brand names like "Express.js". Template placeholders containing `{` (e.g., `src/modules/{feature}/routes`) are skipped. Built-in npm commands (`install`, `ci`, etc.) are excluded from script validation. Workspace package.json files are checked for monorepo script resolution.
+- **Config drift false positives:** The drift detector only matches paths containing `/` (directory separators) to avoid flagging brand names like "Express.js". Template placeholders containing `{` (e.g., `src/modules/{feature}/routes`) are skipped. npm built-in commands (`install`, `ci`, etc.) are excluded from script validation. Workspace package.json files are checked for monorepo script resolution.
 - **Token heatmap uses byte-based estimation:** Tokens are estimated as `bytes / 4` — this is rough but avoids a tokenizer dependency. Actual token counts may vary by 20-40% depending on code density.
-- **Security scanning skips test files:** The secret detection regex skips files in test/fixture/mock/example directories to avoid false positives from test fixtures. Only the first 16KB of each file is scanned.
+- **Security scanning skips test files:** The secret detection regex skips files in `test`, `fixture`, `mock`, and `example` directories to avoid false positives from test fixtures. Only the first 16KB of each file is scanned.
 - **Scoring version tracking:** History entries include `scoringVersion` starting from v0.9.0. The trend chart shows version boundaries. Old entries without a version are treated as pre-0.9.0.
 - **Init command generates 31 config files by default:** `llm-sense init` generates configs for all 31 supported AI tools. Files that already exist are skipped. Use `--overwrite` to replace existing files. Use `--tools` to generate only specific formats. Use `--detect` to scan for existing configs and fill gaps. When Claude CLI is available, AI-powered generation is used for the 4 main formats (CLAUDE.md, .cursorrules, copilot-instructions.md, AGENTS.md); all others use templates.
 - **Init config format stability:** Formats marked `stable: false` in the registry may change as AI tools evolve. These are flagged with "(unstable format)" in the output. Research each tool's current config format before relying on unstable formats in CI.
