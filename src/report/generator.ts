@@ -95,6 +95,42 @@ export function generateReport(report: FinalReport): string {
     lines.push('');
   }
 
+  // Context Window Optimization — show if any savings possible
+  if (report.tokenOptimization && report.tokenOptimization.potentialSavings.savingsPercent > 5) {
+    const opt = report.tokenOptimization;
+    lines.push('### Context Window Optimization');
+    lines.push('');
+    lines.push(`**~${opt.potentialSavings.savingsPercent}% token savings** possible (${(opt.potentialSavings.excludeTokens / 1000).toFixed(0)}K exclude + ${(opt.potentialSavings.compressTokens / 1000).toFixed(0)}K compress of ${(opt.potentialSavings.totalTokens / 1000).toFixed(0)}K total)`);
+    lines.push('');
+
+    if (opt.excludeRecommendations.length > 0) {
+      lines.push('#### Files to Exclude');
+      lines.push('');
+      lines.push('| File | Tokens | Reason |');
+      lines.push('|------|--------|--------|');
+      for (const r of opt.excludeRecommendations.slice(0, 10)) {
+        lines.push(`| \`${r.path}\` | ${(r.tokens / 1000).toFixed(1)}K | ${r.reason} |`);
+      }
+      lines.push('');
+    }
+
+    if (opt.compressRecommendations.length > 0) {
+      lines.push('#### Files to Compress');
+      lines.push('');
+      lines.push('| File | Current | Compressed | Strategy |');
+      lines.push('|------|---------|-----------|----------|');
+      for (const r of opt.compressRecommendations.slice(0, 5)) {
+        lines.push(`| \`${r.path}\` | ${(r.tokens / 1000).toFixed(1)}K | ~${(r.estimatedCompressedTokens / 1000).toFixed(1)}K | ${r.strategy} |`);
+      }
+      lines.push('');
+    }
+
+    lines.push('> Run `llm-sense --generate-ignore` to auto-create `.claudeignore`, `.cursorignore`, `.copilotignore`');
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+  }
+
   // Config Drift — show if any stale references found
   const drift = report.staticAnalysis.documentation.configDrift;
   if (drift.staleReferences.length > 0) {
@@ -106,6 +142,98 @@ export function generateReport(report: FinalReport): string {
       lines.push(`- **${ref.file}** line ${ref.line}: \`${ref.reference}\` — ${ref.reason}`);
     }
     lines.push('');
+    lines.push('---');
+    lines.push('');
+  }
+
+  // Git History Analysis — show if --git-history was used
+  const gitHistory = report.staticAnalysis.gitHistory;
+  if (gitHistory) {
+    lines.push('### Git History Analysis');
+    lines.push('');
+    lines.push(`**${gitHistory.totalCommitsAnalyzed.toLocaleString()} commits** analyzed`);
+    lines.push('');
+
+    // File Importance (top 10)
+    if (gitHistory.fileImportance.length > 0) {
+      lines.push('#### Most Important Files (for LLM context)');
+      lines.push('');
+      lines.push('| File | Importance | Commits | Last Modified |');
+      lines.push('|------|-----------|---------|---------------|');
+      for (const f of gitHistory.fileImportance.slice(0, 10)) {
+        const date = f.lastModified !== 'unknown' ? f.lastModified.split(' ')[0] : '—';
+        lines.push(`| \`${f.path}\` | ${f.score}/100 | ${f.commitCount} | ${date} |`);
+      }
+      lines.push('');
+    }
+
+    // Hotspots
+    if (gitHistory.hotspots.length > 0) {
+      lines.push('#### Hotspots (high churn + high complexity)');
+      lines.push('');
+      lines.push('| File | Churn | Complexity | Risk |');
+      lines.push('|------|-------|-----------|------|');
+      for (const h of gitHistory.hotspots.slice(0, 10)) {
+        const riskEmoji = h.risk === 'high' ? '🔴' : h.risk === 'medium' ? '🟡' : '🟢';
+        lines.push(`| \`${h.path}\` | ${h.changeFrequency} commits | ${h.complexity} | ${riskEmoji} ${h.risk} |`);
+      }
+      lines.push('');
+    }
+
+    // Knowledge Concentration
+    if (gitHistory.knowledgeConcentration.length > 0) {
+      lines.push('#### Bus Factor Risk');
+      lines.push('');
+      lines.push('| File | Authors | Dominant Author | % |');
+      lines.push('|------|---------|----------------|---|');
+      for (const k of gitHistory.knowledgeConcentration.slice(0, 10)) {
+        lines.push(`| \`${k.path}\` | ${k.authors} | ${k.dominantAuthor} | ${k.dominantAuthorPct}% |`);
+      }
+      lines.push('');
+    }
+
+    // Convention Trend
+    if (gitHistory.conventionTrend.direction !== 'stable') {
+      lines.push(`#### Convention Trend: **${gitHistory.conventionTrend.direction}**`);
+      lines.push('');
+      lines.push(`Recent consistency: ${gitHistory.conventionTrend.recentConsistency}% | Older: ${gitHistory.conventionTrend.olderConsistency}%`);
+      lines.push('');
+    }
+
+    lines.push('---');
+    lines.push('');
+  }
+
+  // LLM Lint Findings — show if any findings
+  if (report.llmLint && report.llmLint.findings.length > 0) {
+    const lint = report.llmLint;
+    lines.push('### LLM Lint Findings');
+    lines.push('');
+    lines.push(`**${lint.findings.length} finding(s)** from ${lint.rulesEvaluated} rules across ${lint.candidatesEvaluated} candidates (cost: $${lint.totalCostUsd.toFixed(2)})`);
+    lines.push('');
+    lines.push('| Severity | Rule | File | Function | Issue |');
+    lines.push('|----------|------|------|----------|-------|');
+    for (const f of lint.findings.slice(0, 20)) {
+      const sev = f.severity === 'error' ? '🔴' : f.severity === 'warning' ? '🟡' : '🔵';
+      const explanation = f.explanation.length > 60 ? f.explanation.slice(0, 57) + '...' : f.explanation;
+      lines.push(`| ${sev} ${f.severity} | ${f.ruleName} | \`${f.file}:${f.startLine}\` | \`${f.functionName}\` | ${explanation} |`);
+    }
+    if (lint.findings.length > 20) {
+      lines.push(`| | | | | _...and ${lint.findings.length - 20} more_ |`);
+    }
+    lines.push('');
+
+    // Show suggested fixes for top findings
+    const topFindings = lint.findings.filter(f => f.severity !== 'info').slice(0, 5);
+    if (topFindings.length > 0) {
+      lines.push('#### Suggested Fixes');
+      lines.push('');
+      for (const f of topFindings) {
+        lines.push(`- **\`${f.functionName}\`** (${f.file}:${f.startLine}): ${f.suggestedFix}`);
+      }
+      lines.push('');
+    }
+
     lines.push('---');
     lines.push('');
   }

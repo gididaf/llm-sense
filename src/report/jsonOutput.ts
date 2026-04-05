@@ -1,4 +1,6 @@
 import { SCORING_VERSION } from '../constants.js';
+import { buildAnnotations, type Annotation } from './annotations.js';
+import type { TokenOptimizationResult } from '../analyzers/tokenOptimization.js';
 import type { FinalReport } from '../types.js';
 
 export interface LlmSenseJsonOutput {
@@ -62,6 +64,43 @@ export interface LlmSenseJsonOutput {
     filesScanned: number;
     checks: Array<{ name: string; occurrences: number; penalty: number }>;
   }>;
+  gitHistory?: {
+    fileImportance: Array<{ path: string; score: number; commitCount: number; lastModified: string }>;
+    hotspots: Array<{ path: string; changeFrequency: number; complexity: number; risk: string }>;
+    knowledgeConcentration: Array<{ path: string; authors: number; dominantAuthor: string; dominantAuthorPct: number }>;
+    conventionTrend: { direction: string; recentConsistency: number; olderConsistency: number };
+    totalCommitsAnalyzed: number;
+  };
+  annotations?: Array<{
+    file: string;
+    line?: number;
+    severity: 'error' | 'warning' | 'info';
+    category: string;
+    message: string;
+  }>;
+  tokenOptimization?: {
+    potentialSavings: { excludeTokens: number; compressTokens: number; totalTokens: number; savingsPercent: number };
+    excludeRecommendations: Array<{ path: string; tokens: number; reason: string; pattern: string }>;
+    compressRecommendations: Array<{ path: string; tokens: number; estimatedCompressedTokens: number; reason: string; strategy: string }>;
+  };
+  llmLint?: {
+    findings: Array<{
+      ruleId: string;
+      ruleName: string;
+      severity: string;
+      category: string;
+      file: string;
+      functionName: string;
+      startLine: number;
+      endLine: number;
+      explanation: string;
+      suggestedFix: string;
+    }>;
+    rulesEvaluated: number;
+    candidatesEvaluated: number;
+    filesScanned: number;
+    totalCostUsd: number;
+  };
   meta: {
     duration: number;
     claudeModel: string;
@@ -74,6 +113,8 @@ export function buildJsonOutput(
   report: FinalReport,
   mode: 'full' | 'static-only',
   model?: string,
+  includeAnnotations?: boolean,
+  tokenOptimization?: TokenOptimizationResult,
 ): LlmSenseJsonOutput {
   const delta = report.previousScore !== null
     ? report.overallScore - report.previousScore
@@ -136,6 +177,26 @@ export function buildJsonOutput(
         penalty: Math.min(c.occurrences * c.penalty, c.cap),
       })),
     })).filter(lc => lc.checks.length > 0) ?? undefined,
+    gitHistory: report.staticAnalysis.gitHistory ? {
+      fileImportance: report.staticAnalysis.gitHistory.fileImportance.map(f => ({
+        path: f.path, score: f.score, commitCount: f.commitCount, lastModified: f.lastModified,
+      })),
+      hotspots: report.staticAnalysis.gitHistory.hotspots.map(h => ({
+        path: h.path, changeFrequency: h.changeFrequency, complexity: h.complexity, risk: h.risk,
+      })),
+      knowledgeConcentration: report.staticAnalysis.gitHistory.knowledgeConcentration.map(k => ({
+        path: k.path, authors: k.authors, dominantAuthor: k.dominantAuthor, dominantAuthorPct: k.dominantAuthorPct,
+      })),
+      conventionTrend: report.staticAnalysis.gitHistory.conventionTrend,
+      totalCommitsAnalyzed: report.staticAnalysis.gitHistory.totalCommitsAnalyzed,
+    } : undefined,
+    annotations: includeAnnotations ? buildAnnotations(report.staticAnalysis) : undefined,
+    tokenOptimization: tokenOptimization ? {
+      potentialSavings: tokenOptimization.potentialSavings,
+      excludeRecommendations: tokenOptimization.excludeRecommendations.slice(0, 20),
+      compressRecommendations: tokenOptimization.compressRecommendations.slice(0, 10),
+    } : undefined,
+    llmLint: report.llmLint ?? undefined,
     empirical,
     meta: {
       duration: report.totalDurationMs,

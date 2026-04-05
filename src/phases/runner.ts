@@ -17,6 +17,7 @@ import { runAutoFix, formatFixResults, runAutoImprove } from './autoFix.js';
 import { cleanupAll } from '../core/isolation.js';
 import { loadProfile } from './scoring.js';
 import type { CliOptions, CodebaseUnderstanding, TaskGenerationResponse, TaskExecutionResult, FinalReport, PrDeltaResult } from '../types.js';
+import type { LlmLintResult } from './llmLint.js';
 
 export async function run(options: CliOptions): Promise<void> {
   const startTime = Date.now();
@@ -120,46 +121,136 @@ export async function run(options: CliOptions): Promise<void> {
 
   const { result: staticResult, entries } = await runStaticAnalysis(options.path, options.verbose, options.noAst);
   log(chalk.green('  ✓') + ` ${staticResult.fileSizes.totalFiles} source files, ${staticResult.fileSizes.totalLines.toLocaleString()} lines analyzed`);
+
+  // Git history enrichment (--git-history flag)
+  if (options.gitHistory) {
+    log(chalk.yellow('Phase 1b:') + ' Git History Analysis');
+    try {
+      const { analyzeGitHistory } = await import('../analyzers/gitHistory.js');
+      const gitResult = await analyzeGitHistory(options.path, options.verbose, staticResult.astAnalysis);
+      if (gitResult) {
+        staticResult.gitHistory = gitResult;
+        log(chalk.green('  ✓') + ` ${gitResult.totalCommitsAnalyzed} commits analyzed, ${gitResult.fileImportance.length} important files, ${gitResult.hotspots.length} hotspots`);
+        if (gitResult.knowledgeConcentration.length > 0) {
+          log(chalk.dim(`    ${gitResult.knowledgeConcentration.length} files with bus-factor risk`));
+        }
+        if (gitResult.conventionTrend.direction !== 'stable') {
+          log(chalk.dim(`    Convention trend: ${gitResult.conventionTrend.direction}`));
+        }
+      } else {
+        log(chalk.dim('  Skipped — not a git repo or no history'));
+      }
+    } catch (error) {
+      log(chalk.red('  ✗') + ` Git history analysis failed: ${error instanceof Error ? error.message : error}`);
+    }
+    log('');
+  }
   log('');
 
   let understanding: CodebaseUnderstanding | null = null;
   let tasks: TaskGenerationResponse | null = null;
   let taskResults: TaskExecutionResult[] = [];
   let llmAdjustments: import('../types.js').LlmVerificationAdjustments | null = null;
+  let llmLintResult: LlmLintResult | null = null;
+
+  let phase2Cached = false;
 
   if (!options.skipEmpirical) {
-    // Phase 2: LLM Understanding
-    log(chalk.yellow('Phase 2:') + ' LLM Codebase Understanding');
-    try {
-      const phase2 = await runLlmUnderstanding(
-        options.path, entries, staticResult, options.verbose, options.model,
-      );
-      understanding = phase2.data;
-      totalCostUsd += phase2.costUsd;
-      log(chalk.green('  ✓') + ` ${understanding.projectName} — ${understanding.complexity} complexity, ${understanding.techStack.length} technologies`);
-      log(chalk.dim(`    Cost: $${phase2.costUsd.toFixed(2)}, Duration: ${(phase2.durationMs / 1000).toFixed(0)}s`));
-    } catch (error) {
-      log(chalk.red('  ✗') + ` Failed: ${error instanceof Error ? error.message : error}`);
-      log(chalk.dim('    Continuing with static-only scoring...'));
-    }
-    log('');
+    // Check Phase 2 cache for scoring consistency
+    const { loadPhase2Cache, savePhase2Cache } = await import('../core/cache.js');
+    const phase2Cache = !options.noCache ? await loadPhase2Cache(options.path, entries) : null;
 
-    // Phase 2b: LLM Verification (validates static findings)
-    log(chalk.yellow('Phase 2b:') + ' LLM Verification');
-    try {
-      const phase2b = await runLlmVerification(
-        options.path, entries, staticResult, options.verbose, options.model,
-      );
-      llmAdjustments = phase2b.adjustments;
-      totalCostUsd += phase2b.costUsd;
-      const v = phase2b.verification;
-      log(chalk.green('  ✓') + ` Doc: ${v.documentationQuality.score}/10, Naming: ${v.namingClarity.score}/10, Architecture: ${v.architectureClarity.score}/10`);
-      log(chalk.dim(`    Cost: $${phase2b.costUsd.toFixed(2)}, Duration: ${(phase2b.durationMs / 1000).toFixed(0)}s`));
-    } catch (error) {
-      log(chalk.red('  ✗') + ` Verification failed: ${error instanceof Error ? error.message : error}`);
-      log(chalk.dim('    Continuing without LLM adjustments...'));
+    if (phase2Cache) {
+      log(chalk.yellow('Phase 2:') + ' LLM Codebase Understanding ' + chalk.dim('(cached)'));
+      understanding = phase2Cache.understanding as CodebaseUnderstanding;
+      phase2Cached = true;
+      if (understanding) {
+        log(chalk.green('  ✓') + ` ${understanding.projectName} — ${understanding.complexity} complexity (from cache — $0.00)`);
+      }
+      log('');
+
+      log(chalk.yellow('Phase 2b:') + ' LLM Verification ' + chalk.dim('(cached)'));
+      if (phase2Cache.verification) {
+        const { LlmVerificationSchema } = await import('../types.js');
+        try {
+          const v = LlmVerificationSchema.parse(phase2Cache.verification);
+          const { computeLlmAdjustments } = await import('./llmUnderstanding.js');
+          llmAdjustments = computeLlmAdjustments(v);
+          log(chalk.green('  ✓') + ` Doc: ${v.documentationQuality.score}/10, Naming: ${v.namingClarity.score}/10, Architecture: ${v.architectureClarity.score}/10 (from cache)`);
+        } catch {
+          log(chalk.dim('  Cached verification data invalid — skipping'));
+        }
+      }
+      log('');
+    } else {
+      // Phase 2: LLM Understanding
+      log(chalk.yellow('Phase 2:') + ' LLM Codebase Understanding');
+      try {
+        const phase2 = await runLlmUnderstanding(
+          options.path, entries, staticResult, options.verbose, options.model,
+        );
+        understanding = phase2.data;
+        totalCostUsd += phase2.costUsd;
+        log(chalk.green('  ✓') + ` ${understanding.projectName} — ${understanding.complexity} complexity, ${understanding.techStack.length} technologies`);
+        log(chalk.dim(`    Cost: $${phase2.costUsd.toFixed(2)}, Duration: ${(phase2.durationMs / 1000).toFixed(0)}s`));
+      } catch (error) {
+        log(chalk.red('  ✗') + ` Failed: ${error instanceof Error ? error.message : error}`);
+        log(chalk.dim('    Continuing with static-only scoring...'));
+      }
+      log('');
+
+      // Phase 2b: LLM Verification (validates static findings)
+      let verificationData: unknown = null;
+      log(chalk.yellow('Phase 2b:') + ' LLM Verification');
+      try {
+        const phase2b = await runLlmVerification(
+          options.path, entries, staticResult, options.verbose, options.model,
+        );
+        llmAdjustments = phase2b.adjustments;
+        verificationData = phase2b.verification;
+        totalCostUsd += phase2b.costUsd;
+        const v = phase2b.verification;
+        log(chalk.green('  ✓') + ` Doc: ${v.documentationQuality.score}/10, Naming: ${v.namingClarity.score}/10, Architecture: ${v.architectureClarity.score}/10`);
+        log(chalk.dim(`    Cost: $${phase2b.costUsd.toFixed(2)}, Duration: ${(phase2b.durationMs / 1000).toFixed(0)}s`));
+      } catch (error) {
+        log(chalk.red('  ✗') + ` Verification failed: ${error instanceof Error ? error.message : error}`);
+        log(chalk.dim('    Continuing without LLM adjustments...'));
+      }
+      log('');
+
+      // Save Phase 2 results to cache for scoring consistency
+      if (!options.noCache && (understanding || verificationData)) {
+        try {
+          await savePhase2Cache(options.path, entries, understanding, verificationData);
+          if (options.verbose) log(chalk.dim('  Phase 2 results cached for consistency'));
+        } catch { /* non-critical */ }
+      }
     }
-    log('');
+
+    // Phase 2c: LLM Lint Rules (only if not skipped with --no-llm-lint)
+    if (!options.noLlmLint) {
+      log(chalk.yellow('Phase 2c:') + ' LLM Lint Rules');
+      try {
+        const { runLlmLint } = await import('./llmLint.js');
+        llmLintResult = await runLlmLint(
+          options.path, entries, staticResult.astAnalysis, options.verbose, options.model,
+        );
+        totalCostUsd += llmLintResult.totalCostUsd;
+        if (llmLintResult.findings.length > 0) {
+          const errors = llmLintResult.findings.filter(f => f.severity === 'error').length;
+          const warnings = llmLintResult.findings.filter(f => f.severity === 'warning').length;
+          const infos = llmLintResult.findings.filter(f => f.severity === 'info').length;
+          log(chalk.green('  ✓') + ` ${llmLintResult.findings.length} findings (${errors} errors, ${warnings} warnings, ${infos} info)`);
+        } else {
+          log(chalk.green('  ✓') + ` ${llmLintResult.candidatesEvaluated} candidates evaluated, no issues found`);
+        }
+        log(chalk.dim(`    Cost: $${llmLintResult.totalCostUsd.toFixed(2)}, Duration: ${(llmLintResult.durationMs / 1000).toFixed(0)}s, Rules: ${llmLintResult.rulesEvaluated}`));
+      } catch (error) {
+        log(chalk.red('  ✗') + ` LLM lint failed: ${error instanceof Error ? error.message : error}`);
+        log(chalk.dim('    Continuing without LLM lint findings...'));
+      }
+      log('');
+    }
 
     // Phase 3: Task Generation (only if Phase 2 succeeded)
     if (understanding) {
@@ -210,7 +301,15 @@ export async function run(options: CliOptions): Promise<void> {
   // Phase 5: Scoring
   const skipEmpirical = options.skipEmpirical || taskResults.length === 0;
   log(chalk.yellow('Phase 5:') + ' Scoring');
-  const scoring = computeScores(staticResult, taskResults, skipEmpirical, profileWeights);
+  // Build llmLint report shape for scoring integration
+  const llmLintForScoring = llmLintResult && llmLintResult.findings.length > 0 ? {
+    findings: llmLintResult.findings,
+    rulesEvaluated: llmLintResult.rulesEvaluated,
+    candidatesEvaluated: llmLintResult.candidatesEvaluated,
+    filesScanned: llmLintResult.filesScanned,
+    totalCostUsd: llmLintResult.totalCostUsd,
+  } : undefined;
+  const scoring = computeScores(staticResult, taskResults, skipEmpirical, profileWeights, llmLintForScoring);
   let { categories, overallScore, grade } = scoring;
 
   // Apply LLM verification adjustments (±15 points per category)
@@ -244,6 +343,24 @@ export async function run(options: CliOptions): Promise<void> {
   // Build executable recommendations
   const recommendations = buildExecutableRecommendations(categories, staticResult, understanding);
 
+  // Token optimization analysis
+  const { analyzeTokenOptimization, generateIgnoreFiles } = await import('../analyzers/tokenOptimization.js');
+  const tokenOptimization = analyzeTokenOptimization(staticResult, entries);
+
+  if (tokenOptimization.potentialSavings.savingsPercent > 5) {
+    log(chalk.dim(`  Context optimization: ~${tokenOptimization.potentialSavings.savingsPercent}% token savings possible (${tokenOptimization.excludeRecommendations.length} files to exclude, ${tokenOptimization.compressRecommendations.length} to compress)`));
+  }
+
+  // --generate-ignore: create ignore files for AI tools
+  if (options.generateIgnore) {
+    try {
+      const created = await generateIgnoreFiles(options.path, tokenOptimization);
+      log(chalk.green('  ✓') + ` Created ${created.join(', ')}`);
+    } catch (err) {
+      log(chalk.red('  ✗') + ` Failed to create ignore files: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
   // Phase 6: Report Generation
   const totalDurationMs = Date.now() - startTime;
   const report: FinalReport = {
@@ -260,13 +377,25 @@ export async function run(options: CliOptions): Promise<void> {
     totalDurationMs,
     generatedAt: new Date().toISOString(),
     targetPath: options.path,
+    tokenOptimization: tokenOptimization.potentialSavings.savingsPercent > 0 ? {
+      excludeRecommendations: tokenOptimization.excludeRecommendations,
+      compressRecommendations: tokenOptimization.compressRecommendations,
+      potentialSavings: tokenOptimization.potentialSavings,
+    } : undefined,
+    llmLint: llmLintResult && llmLintResult.findings.length > 0 ? {
+      findings: llmLintResult.findings,
+      rulesEvaluated: llmLintResult.rulesEvaluated,
+      candidatesEvaluated: llmLintResult.candidatesEvaluated,
+      filesScanned: llmLintResult.filesScanned,
+      totalCostUsd: llmLintResult.totalCostUsd,
+    } : undefined,
   };
 
   log(chalk.yellow('Phase 6:') + ' Report Generation');
 
   // Output based on format (skip JSON/summary stdout if --compare will output its own)
   if (options.format === 'json' && !options.compare) {
-    const jsonOutput = buildJsonOutput(report, skipEmpirical ? 'static-only' : 'full', options.model);
+    const jsonOutput = buildJsonOutput(report, skipEmpirical ? 'static-only' : 'full', options.model, options.annotations, tokenOptimization);
     process.stdout.write(JSON.stringify(jsonOutput, null, 2) + '\n');
     log(chalk.green('  ✓') + ' JSON output written to stdout');
   } else if (options.format === 'summary' && !options.compare) {
@@ -311,6 +440,8 @@ export async function run(options: CliOptions): Promise<void> {
     targetPath: options.path,
     costUsd: totalCostUsd,
     scoringVersion: SCORING_VERSION,
+    mode: skipEmpirical ? 'static-only' : 'full',
+    phase2Cached,
     ...(options.profile ? { profile: options.profile } : {}),
   });
 

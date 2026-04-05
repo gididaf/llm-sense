@@ -39,6 +39,13 @@ export async function runStaticAnalysis(
   const importsAnalysis = await analyzeImports(entries);
   const imports = importsAnalysis.result;
   const fragmentationRatio = importsAnalysis.fragmentationRatio;
+  // Flatten graph for dependency visualization
+  const importGraph: Array<{ source: string; target: string }> = [];
+  for (const [source, targets] of importsAnalysis.graph) {
+    for (const target of targets) {
+      importGraph.push({ source, target });
+    }
+  }
 
   if (verbose) console.log('  Analyzing modularity...');
   const modularity = analyzeModularity(entries);
@@ -99,6 +106,7 @@ export async function runStaticAnalysis(
       contextProfile,
       languageChecks,
       astAnalysis,
+      importGraph,
     },
     entries,
   };

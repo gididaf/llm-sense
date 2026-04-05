@@ -28,7 +28,7 @@ export const SCORING_WEIGHTS_NO_EMPIRICAL: Record<string, number> = {
   codeQuality: 0.06,
 };
 
-export const SCORING_VERSION = '1.1.0';
+export const SCORING_VERSION = '1.2.0';
 
 // ─── Custom Scoring Profiles ───────────────────────────
 

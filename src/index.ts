@@ -6,7 +6,8 @@ const program = new Command();
 program
   .name('llm-sense')
   .description('Analyze how LLM-friendly a codebase is')
-  .version('2.0.0')
+  .version('2.4.0')
+  .enablePositionalOptions()
   .option('--path <dir>', 'Path to the codebase to analyze', '.')
   .option('--bugs <n>', 'Number of synthetic bug tasks', '5')
   .option('--features <n>', 'Number of synthetic feature tasks', '5')
@@ -41,6 +42,10 @@ program
   .option('--max-total-budget <usd>', 'Total budget cap for --auto-improve', '5.00')
   .option('--profile <name>', 'Scoring profile: default, strict, docs, security, or path to .llm-sense/profile.json')
   .option('--no-ast', 'Skip tree-sitter AST analysis (use regex-only language checks)')
+  .option('--git-history', 'Enrich analysis with git history data (file importance, hotspots, bus factor)')
+  .option('--annotations', 'Include file-level annotations in JSON output (for CI/GitHub Action inline comments)')
+  .option('--generate-ignore', 'Auto-create .claudeignore, .cursorignore, .copilotignore files based on analysis')
+  .option('--no-llm-lint', 'Skip LLM-powered lint rules (reduces cost during non-empirical runs)')
   .action(async (options) => {
     const targetPath = resolve(options.path);
 
@@ -106,6 +111,10 @@ program
       maxTotalBudget: parseFloat(options.maxTotalBudget),
       profile: options.profile,
       noAst: options.ast === false,
+      gitHistory: options.gitHistory ?? false,
+      annotations: options.annotations ?? false,
+      generateIgnore: options.generateIgnore ?? false,
+      noLlmLint: options.llmLint === false,
     });
   });
 
@@ -119,6 +128,21 @@ program
   });
 
 program
+  .command('audit [dir]')
+  .description('Audit AI config files for quality, accuracy, and freshness')
+  .passThroughOptions()
+  .option('--verbose', 'Show detailed findings per dimension')
+  .option('--format <format>', 'Output format: console, json', 'console')
+  .action(async (dir, options) => {
+    const targetPath = resolve(dir ?? '.');
+    const { runAudit } = await import('./commands/audit.js');
+    await runAudit(targetPath, {
+      verbose: options.verbose ?? false,
+      format: (options.format === 'json' ? 'json' : 'console') as 'console' | 'json',
+    });
+  });
+
+program
   .command('init [dir]')
   .description('Scaffold AI config files for 30+ tools (CLAUDE.md, .cursorrules, .windsurfrules, ...)')
   .option('--verbose', 'Show detailed output')
@@ -126,6 +150,7 @@ program
   .option('--tools <ids>', 'Generate only specific tools (comma-separated IDs)')
   .option('--list', 'List all supported AI tool config formats')
   .option('--detect', 'Detect existing configs and generate missing ones')
+  .option('--provider <name>', 'LLM provider for AI-powered generation: claude, openai, google')
   .action(async (dir, options) => {
     const targetPath = resolve(dir ?? '.');
     const { runInit } = await import('./commands/init.js');
@@ -133,6 +158,7 @@ program
       tools: options.tools ? options.tools.split(',').map((s: string) => s.trim()) : undefined,
       list: options.list ?? false,
       detect: options.detect ?? false,
+      provider: options.provider,
     });
   });
 

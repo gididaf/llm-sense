@@ -210,6 +210,279 @@ function buildConfigDrift(report: FinalReport): string {
   }).join('\n');
 }
 
+// ─── Dependency Graph Visualization ──────────────────────
+
+function buildDependencyGraph(report: FinalReport): string {
+  const edges = report.staticAnalysis.importGraph;
+  if (!edges || edges.length === 0) return '<p class="dim">No import graph data available</p>';
+
+  // Collect unique nodes
+  const nodeSet = new Set<string>();
+  for (const e of edges) {
+    nodeSet.add(e.source);
+    nodeSet.add(e.target);
+  }
+
+  // If too many nodes, only show the most connected
+  const MAX_NODES = 60;
+  let filteredEdges = edges;
+  let nodes = [...nodeSet];
+
+  if (nodes.length > MAX_NODES) {
+    // Count connections per node
+    const connectionCount = new Map<string, number>();
+    for (const e of edges) {
+      connectionCount.set(e.source, (connectionCount.get(e.source) ?? 0) + 1);
+      connectionCount.set(e.target, (connectionCount.get(e.target) ?? 0) + 1);
+    }
+    // Keep top N most connected
+    nodes = [...connectionCount.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, MAX_NODES)
+      .map(([n]) => n);
+    const nodeSetFiltered = new Set(nodes);
+    filteredEdges = edges.filter(e => nodeSetFiltered.has(e.source) && nodeSetFiltered.has(e.target));
+  }
+
+  // Build node metadata
+  const hubFiles = new Set(report.staticAnalysis.imports.hubFiles.map(h => h.path));
+  const orphanFiles = new Set(report.staticAnalysis.imports.orphanFiles);
+  const godFiles = new Set(
+    report.staticAnalysis.fileSizes.largestFiles
+      .filter(f => f.lines >= 1000 && f.classification === 'code')
+      .map(f => f.path)
+  );
+
+  // Detect circular deps from edges
+  const circularPairs = new Set<string>();
+  const edgeSet = new Set(filteredEdges.map(e => `${e.source}->${e.target}`));
+  for (const e of filteredEdges) {
+    if (edgeSet.has(`${e.target}->${e.source}`)) {
+      circularPairs.add(`${e.source}->${e.target}`);
+      circularPairs.add(`${e.target}->${e.source}`);
+    }
+  }
+
+  // Fan-in count for sizing
+  const fanIn = new Map<string, number>();
+  for (const e of filteredEdges) {
+    fanIn.set(e.target, (fanIn.get(e.target) ?? 0) + 1);
+  }
+
+  // Node data as JSON for JS
+  const nodeData = nodes.map((n, i) => {
+    const isHub = hubFiles.has(n);
+    const isGod = godFiles.has(n);
+    const isOrphan = orphanFiles.has(n);
+    const color = isHub ? '#f87171' : isGod ? '#fb923c' : isOrphan ? '#64748b' : '#4ade80';
+    const fi = fanIn.get(n) ?? 0;
+    const radius = Math.max(4, Math.min(16, 4 + fi * 1.5));
+    const label = n.split('/').pop()?.replace(/\.(ts|tsx|js|jsx|py|rs|go)$/, '') ?? n;
+    return { id: n, label, color, radius, isHub, isGod, isOrphan, fi };
+  });
+
+  const edgeData = filteredEdges.map(e => ({
+    source: e.source,
+    target: e.target,
+    circular: circularPairs.has(`${e.source}->${e.target}`),
+  }));
+
+  const nodesJson = JSON.stringify(nodeData);
+  const edgesJson = JSON.stringify(edgeData);
+
+  return `
+  <div class="graph-legend">
+    <span style="color:#f87171">● Hub (high fan-in)</span>
+    <span style="color:#fb923c">● God file (1000+ lines)</span>
+    <span style="color:#64748b">● Orphan (no imports)</span>
+    <span style="color:#4ade80">● Healthy</span>
+    <span style="color:#f87171">— Circular dep</span>
+    <span class="dim">${nodes.length} nodes, ${filteredEdges.length} edges${nodes.length < nodeSet.size ? ` (showing top ${MAX_NODES} of ${nodeSet.size})` : ''}</span>
+  </div>
+  <canvas id="depGraph" width="1060" height="600" style="width:100%;background:var(--surface);border-radius:8px;cursor:grab"></canvas>
+  <div id="graphTooltip" style="display:none;position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:0.82rem;pointer-events:none;z-index:10"></div>
+  <script>
+  (function(){
+    const nodes=${nodesJson};
+    const edges=${edgesJson};
+    const W=1060,H=600;
+    const canvas=document.getElementById('depGraph');
+    const ctx=canvas.getContext('2d');
+    const tooltip=document.getElementById('graphTooltip');
+    let scale=1,panX=0,panY=0,dragging=null,dragOff={x:0,y:0},isPanning=false,panStart={x:0,y:0};
+
+    // Initialize positions with a circle layout
+    const cx=W/2,cy=H/2;
+    nodes.forEach((n,i)=>{
+      const a=(2*Math.PI*i)/nodes.length;
+      n.x=cx+Math.cos(a)*(W/3);
+      n.y=cy+Math.sin(a)*(H/3);
+      n.vx=0;n.vy=0;
+    });
+
+    const nodeMap=new Map(nodes.map(n=>[n.id,n]));
+
+    // Force-directed simulation
+    function simulate(){
+      const repulsion=800,attraction=0.005,damping=0.85,centerPull=0.001;
+      // Repulsion between nodes
+      for(let i=0;i<nodes.length;i++){
+        for(let j=i+1;j<nodes.length;j++){
+          const dx=nodes[j].x-nodes[i].x;
+          const dy=nodes[j].y-nodes[i].y;
+          const d2=dx*dx+dy*dy+1;
+          const f=repulsion/d2;
+          const fx=dx/Math.sqrt(d2)*f;
+          const fy=dy/Math.sqrt(d2)*f;
+          nodes[i].vx-=fx;nodes[i].vy-=fy;
+          nodes[j].vx+=fx;nodes[j].vy+=fy;
+        }
+      }
+      // Attraction along edges
+      for(const e of edges){
+        const s=nodeMap.get(e.source),t=nodeMap.get(e.target);
+        if(!s||!t)continue;
+        const dx=t.x-s.x,dy=t.y-s.y;
+        const d=Math.sqrt(dx*dx+dy*dy)+1;
+        const f=attraction*(d-120);
+        s.vx+=dx/d*f;s.vy+=dy/d*f;
+        t.vx-=dx/d*f;t.vy-=dy/d*f;
+      }
+      // Center pull
+      for(const n of nodes){
+        n.vx+=(cx-n.x)*centerPull;
+        n.vy+=(cy-n.y)*centerPull;
+      }
+      // Apply velocities
+      for(const n of nodes){
+        n.vx*=damping;n.vy*=damping;
+        n.x+=n.vx;n.y+=n.vy;
+        n.x=Math.max(20,Math.min(W-20,n.x));
+        n.y=Math.max(20,Math.min(H-20,n.y));
+      }
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,W,H);
+      ctx.save();
+      ctx.translate(panX,panY);
+      ctx.scale(scale,scale);
+      // Edges
+      for(const e of edges){
+        const s=nodeMap.get(e.source),t=nodeMap.get(e.target);
+        if(!s||!t)continue;
+        ctx.beginPath();
+        ctx.moveTo(s.x,s.y);ctx.lineTo(t.x,t.y);
+        ctx.strokeStyle=e.circular?'rgba(248,113,113,0.6)':'rgba(100,116,139,0.25)';
+        ctx.lineWidth=e.circular?1.5:0.5;
+        ctx.stroke();
+        // Arrow
+        const angle=Math.atan2(t.y-s.y,t.x-s.x);
+        const ax=t.x-Math.cos(angle)*(t.radius+2);
+        const ay=t.y-Math.sin(angle)*(t.radius+2);
+        ctx.beginPath();
+        ctx.moveTo(ax,ay);
+        ctx.lineTo(ax-6*Math.cos(angle-0.3),ay-6*Math.sin(angle-0.3));
+        ctx.lineTo(ax-6*Math.cos(angle+0.3),ay-6*Math.sin(angle+0.3));
+        ctx.closePath();
+        ctx.fillStyle=e.circular?'rgba(248,113,113,0.6)':'rgba(100,116,139,0.35)';
+        ctx.fill();
+      }
+      // Nodes
+      for(const n of nodes){
+        ctx.beginPath();
+        ctx.arc(n.x,n.y,n.radius,0,2*Math.PI);
+        ctx.fillStyle=n.color;
+        ctx.fill();
+        ctx.strokeStyle='rgba(15,23,42,0.8)';
+        ctx.lineWidth=1;
+        ctx.stroke();
+      }
+      // Labels (only for larger nodes or when zoomed)
+      for(const n of nodes){
+        if(n.radius>=6||scale>1.3){
+          ctx.fillStyle='#e2e8f0';
+          ctx.font=(10/scale)+'px monospace';
+          ctx.textAlign='center';
+          ctx.fillText(n.label,n.x,n.y-n.radius-4);
+        }
+      }
+      ctx.restore();
+    }
+
+    // Run simulation
+    let frame=0;
+    function tick(){
+      if(frame<200)simulate();
+      draw();
+      frame++;
+      if(frame<200)requestAnimationFrame(tick);
+    }
+    tick();
+
+    // Mouse interaction
+    function canvasPos(e){
+      const r=canvas.getBoundingClientRect();
+      return {x:(e.clientX-r.left-panX)/scale,y:(e.clientY-r.top-panY)/scale};
+    }
+    function hitNode(pos){
+      for(let i=nodes.length-1;i>=0;i--){
+        const n=nodes[i];
+        const dx=pos.x-n.x,dy=pos.y-n.y;
+        if(dx*dx+dy*dy<(n.radius+3)*(n.radius+3))return n;
+      }
+      return null;
+    }
+    canvas.addEventListener('mousedown',e=>{
+      const pos=canvasPos(e);
+      const n=hitNode(pos);
+      if(n){dragging=n;dragOff={x:pos.x-n.x,y:pos.y-n.y};canvas.style.cursor='grabbing';}
+      else{isPanning=true;panStart={x:e.clientX-panX,y:e.clientY-panY};canvas.style.cursor='grabbing';}
+    });
+    canvas.addEventListener('mousemove',e=>{
+      const pos=canvasPos(e);
+      if(dragging){
+        dragging.x=pos.x-dragOff.x;dragging.y=pos.y-dragOff.y;
+        dragging.vx=0;dragging.vy=0;
+        draw();
+      }else if(isPanning){
+        panX=e.clientX-panStart.x;panY=e.clientY-panStart.y;
+        draw();
+      }else{
+        const n=hitNode(pos);
+        if(n){
+          canvas.style.cursor='pointer';
+          const incoming=edges.filter(e=>e.target===n.id).map(e=>e.source.split('/').pop());
+          const outgoing=edges.filter(e=>e.source===n.id).map(e=>e.target.split('/').pop());
+          let html='<strong>'+escHtml(n.id)+'</strong>';
+          html+='<br>Fan-in: '+incoming.length+(incoming.length>0?' ('+incoming.slice(0,5).map(escHtml).join(', ')+(incoming.length>5?'...':'')+')':'');
+          html+='<br>Fan-out: '+outgoing.length+(outgoing.length>0?' ('+outgoing.slice(0,5).map(escHtml).join(', ')+(outgoing.length>5?'...':'')+')':'');
+          if(n.isHub)html+='<br><span style="color:#f87171">Hub file</span>';
+          if(n.isGod)html+='<br><span style="color:#fb923c">God file (1000+ lines)</span>';
+          tooltip.innerHTML=html;
+          tooltip.style.display='block';
+          tooltip.style.left=(e.clientX+12)+'px';
+          tooltip.style.top=(e.clientY+12)+'px';
+        }else{
+          canvas.style.cursor='grab';
+          tooltip.style.display='none';
+        }
+      }
+    });
+    canvas.addEventListener('mouseup',()=>{dragging=null;isPanning=false;canvas.style.cursor='grab';});
+    canvas.addEventListener('mouseleave',()=>{tooltip.style.display='none';dragging=null;isPanning=false;});
+    canvas.addEventListener('wheel',e=>{
+      e.preventDefault();
+      const z=e.deltaY>0?0.9:1.1;
+      scale*=z;
+      scale=Math.max(0.3,Math.min(3,scale));
+      draw();
+    },{passive:false});
+    function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  })();
+  </script>`;
+}
+
 // ─── Main HTML Generator ─────────────────────────────────
 
 export function generateHtmlReport(report: FinalReport): string {
@@ -223,10 +496,13 @@ export function generateHtmlReport(report: FinalReport): string {
   const categoryBars = buildCategoryBars(categories);
   const tokenHeatmap = buildTokenHeatmap(staticAnalysis.tokenHeatmap.entries);
   const contextProfile = buildContextProfile(staticAnalysis.contextProfile);
+  const depGraphHtml = buildDependencyGraph(report);
   const recsHtml = buildRecommendations(recommendations);
   const securityHtml = buildSecurityFindings(report);
   const driftHtml = buildConfigDrift(report);
-  const jsonDump = JSON.stringify(report, null, 2);
+  // Strip importGraph from JSON dump (it's large and rendered visually)
+  const jsonData = { ...report, staticAnalysis: { ...report.staticAnalysis, importGraph: undefined } };
+  const jsonDump = JSON.stringify(jsonData, null, 2);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -309,6 +585,9 @@ export function generateHtmlReport(report: FinalReport): string {
   .sec-sev { font-weight: 700; margin-right: 6px; }
   .sec-check { font-weight: 600; }
 
+  /* Dependency graph */
+  .graph-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.82rem; margin-bottom: 8px; }
+
   /* JSON dump */
   .json-dump { background: var(--surface); border-radius: 6px; padding: 1rem; overflow-x: auto; font-size: 0.75rem; max-height: 400px; overflow-y: auto; }
 
@@ -364,6 +643,10 @@ ${tokenHeatmap}
 <!-- Context Window Profile -->
 <h2>Context Window Profile</h2>
 ${contextProfile}
+
+<!-- Architecture: Dependency Graph -->
+<h2>Architecture</h2>
+${depGraphHtml}
 
 <!-- Recommendations -->
 <h2>Recommendations (${recommendations.length})</h2>

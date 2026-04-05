@@ -1,7 +1,7 @@
 import { SCORING_WEIGHTS, SCORING_WEIGHTS_NO_EMPIRICAL, SCORING_PROFILES } from '../constants.js';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { StaticAnalysisResult, TaskExecutionResult, CategoryScore, LanguageCheckResult, AstAnalysisResult } from '../types.js';
+import type { StaticAnalysisResult, TaskExecutionResult, CategoryScore, LanguageCheckResult, AstAnalysisResult, FinalReport } from '../types.js';
 
 function clamp(value: number, min: number = 0, max: number = 100): number {
   return Math.round(Math.max(min, Math.min(max, value)));
@@ -502,8 +502,12 @@ export function scoreSecurity(s: StaticAnalysisResult['security']): CategoryScor
   return { name: 'Security', score, weight: 0, findings, recommendations };
 }
 
-export function scoreCodeQuality(languageChecks?: LanguageCheckResult[], astAnalysis?: AstAnalysisResult): CategoryScore {
-  if ((!languageChecks || languageChecks.length === 0) && !astAnalysis) {
+export function scoreCodeQuality(
+  languageChecks?: LanguageCheckResult[],
+  astAnalysis?: AstAnalysisResult,
+  llmLint?: FinalReport['llmLint'],
+): CategoryScore {
+  if ((!languageChecks || languageChecks.length === 0) && !astAnalysis && !llmLint) {
     return { name: 'Code Quality', score: 100, weight: 0, findings: ['No language-specific checks applicable'], recommendations: [] };
   }
 
@@ -609,7 +613,22 @@ export function scoreCodeQuality(languageChecks?: LanguageCheckResult[], astAnal
     }
   }
 
-  if (totalPenalty === 0 && !astAnalysis) {
+  // LLM lint findings (Phase 2c)
+  if (llmLint && llmLint.findings.length > 0) {
+    const errors = llmLint.findings.filter(f => f.severity === 'error').length;
+    const warnings = llmLint.findings.filter(f => f.severity === 'warning').length;
+    // Errors: -3 pts each (cap 15), warnings: -2 pts each (cap 10)
+    const errorPenalty = Math.min(errors * 3, 15);
+    const warningPenalty = Math.min(warnings * 2, 10);
+    totalPenalty += errorPenalty + warningPenalty;
+    findings.push(`LLM lint: ${llmLint.findings.length} finding(s) (${errors} errors, ${warnings} warnings)`);
+    // Add top 3 findings as recommendations
+    for (const f of llmLint.findings.slice(0, 3)) {
+      recommendations.push(`[LLM lint] ${f.ruleName}: \`${f.functionName}\` in ${f.file}:${f.startLine} — ${f.suggestedFix}`);
+    }
+  }
+
+  if (totalPenalty === 0 && !astAnalysis && !llmLint) {
     findings.push('No language-specific anti-patterns detected');
   }
 
@@ -645,6 +664,7 @@ export function computeScores(
   taskResults: TaskExecutionResult[],
   skipEmpirical: boolean,
   profileWeights?: Record<string, number>,
+  llmLint?: FinalReport['llmLint'],
 ): { categories: CategoryScore[]; overallScore: number; grade: string } {
   const weights = profileWeights ?? (skipEmpirical ? SCORING_WEIGHTS_NO_EMPIRICAL : SCORING_WEIGHTS);
 
@@ -658,7 +678,7 @@ export function computeScores(
     { ...scoreCoupling(staticResult.imports, staticResult.fragmentationRatio, staticResult.duplicates), weight: weights.coupling ?? 0 },
     { ...scoreDevInfra(staticResult.devInfra), weight: weights.devInfra ?? 0 },
     { ...scoreSecurity(staticResult.security), weight: weights.security ?? 0 },
-    { ...scoreCodeQuality(staticResult.languageChecks, staticResult.astAnalysis), weight: weights.codeQuality ?? 0 },
+    { ...scoreCodeQuality(staticResult.languageChecks, staticResult.astAnalysis, llmLint), weight: weights.codeQuality ?? 0 },
   ];
 
   if (!skipEmpirical) {

@@ -89,3 +89,63 @@ export async function checkCache(
 
   return { cacheHit: isCacheValid(manifest, entries) };
 }
+
+// ─── Phase 2 Result Cache (scoring consistency) ─────────
+
+const PHASE2_CACHE_FILE = 'phase2-cache.json';
+
+interface Phase2Cache {
+  version: string;
+  timestamp: string;
+  fileHash: string; // hash of file tree to detect changes
+  understanding: unknown;
+  verification: unknown;
+}
+
+function getPhase2CachePath(targetPath: string): string {
+  return join(targetPath, CACHE_DIR, PHASE2_CACHE_FILE);
+}
+
+function computeFileTreeHash(entries: WalkEntry[]): string {
+  // Simple hash based on file count + total bytes — cheap way to detect major changes
+  const files = entries.filter(e => e.isFile);
+  const totalBytes = files.reduce((s, e) => s + e.bytes, 0);
+  return `${files.length}:${totalBytes}`;
+}
+
+export async function loadPhase2Cache(
+  targetPath: string,
+  entries: WalkEntry[],
+): Promise<{ understanding: unknown; verification: unknown } | null> {
+  try {
+    const content = await readFile(getPhase2CachePath(targetPath), 'utf-8');
+    const cache = JSON.parse(content) as Phase2Cache;
+    const { SCORING_VERSION } = await import('../constants.js');
+    if (cache.version !== SCORING_VERSION) return null;
+    // Check if file tree changed significantly
+    const currentHash = computeFileTreeHash(entries);
+    if (cache.fileHash !== currentHash) return null;
+    return { understanding: cache.understanding, verification: cache.verification };
+  } catch {
+    return null;
+  }
+}
+
+export async function savePhase2Cache(
+  targetPath: string,
+  entries: WalkEntry[],
+  understanding: unknown,
+  verification: unknown,
+): Promise<void> {
+  const dir = join(targetPath, CACHE_DIR);
+  try { await mkdir(dir, { recursive: true }); } catch {}
+  const { SCORING_VERSION } = await import('../constants.js');
+  const cache: Phase2Cache = {
+    version: SCORING_VERSION,
+    timestamp: new Date().toISOString(),
+    fileHash: computeFileTreeHash(entries),
+    understanding,
+    verification,
+  };
+  await writeFile(getPhase2CachePath(targetPath), JSON.stringify(cache, null, 2) + '\n', 'utf-8');
+}

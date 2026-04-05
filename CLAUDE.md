@@ -13,7 +13,19 @@ A 7-phase CLI pipeline that analyzes codebase LLM-friendliness:
 7. **Auto-Fix** — Applies recommendations via Claude Code in isolated worktrees, re-scores, merges if improved
 7b. **Auto-Improve** — Iterative fix loop targeting a specific score (`--auto-improve --target 85`)
 
-Phases 2-4 require Claude Code CLI. Phase 1 + 5 + 6 work standalone (`--skip-empirical`).
+Additional subcommands:
+- **`llm-sense audit [dir]`** — Score AI config files (CLAUDE.md, .cursorrules, etc.) 0-100 across 5 dimensions: Completeness, Accuracy, Freshness, Consistency, Specificity. Supports `--format json`.
+- **`--git-history` flag** — Optional git-based enrichment: file importance ranking, hotspot detection (churn × complexity), bus-factor risk, convention trends. Adds a "Git History Analysis" section to reports.
+- **`--annotations` flag** — Include file-level annotations in JSON output for CI/GitHub Action inline PR comments. Extracts findings from god files, security, AST complexity, hub files, naming, config drift. Capped at 20.
+- **HTML Architecture section** — Interactive force-directed dependency graph in `--format html` reports. Canvas-based with zoom/pan/drag. Color-coded nodes (red=hub, orange=god, gray=orphan, green=healthy). Circular deps highlighted in red.
+- **MCP server expanded to 14 tools** — Added `audit_configs`, `get_file_importance`, `get_hotspots`, `get_dependency_graph`, `suggest_context`.
+- **Token compression recommendations** — Analyzes disproportionate token consumers. New "Context Window Optimization" report section with exclude/compress advice.
+- **`--generate-ignore` flag** — Auto-creates `.claudeignore`, `.cursorignore`, `.copilotignore` files with optimal patterns.
+- **Phase 2 caching** — LLM Understanding + Verification results cached in `.llm-sense/phase2-cache.json`. Reused on subsequent runs if file tree unchanged. Reduces variance and cost.
+- **LLM lint rules (Phase 2c)** — Two-pass architecture: AST pre-filters function candidates by complexity/length/nesting, LLM evaluates against 5 built-in rules (single responsibility, misleading names, dead code, error handling, edge cases). User-extensible via `.llm-sense/rules/*.md`. Findings integrate into Code Quality scoring. `--no-llm-lint` to skip.
+- **Multi-LLM provider for init** — `llm-sense init --provider openai|google|claude`. Provider interface in `src/core/providers.ts`. Fallback chain: specified → Claude CLI → template. OpenAI uses `OPENAI_API_KEY`, Google uses `GOOGLE_API_KEY`.
+
+Phases 2-4 require Claude Code CLI (or alternative provider for init). Phase 1 + 5 + 6 work standalone (`--skip-empirical`).
 Phase 7/7b requires `--fix`/`--auto-improve` flag and a git repo.
 
 ## Tech Stack
@@ -44,7 +56,8 @@ src/
 │   ├── history.ts              # Score history tracking (.llm-sense/history.json)
 │   ├── monorepo.ts             # Monorepo detection + package discovery
 │   ├── cache.ts                # Incremental analysis cache (manifest-based mtime tracking)
-│   └── ast.ts                  # Tree-sitter WASM wrapper: grammar download/caching, parser init, AST walking helpers
+│   ├── ast.ts                  # Tree-sitter WASM wrapper: grammar download/caching, parser init, AST walking helpers
+│   └── providers.ts            # Multi-LLM provider interface: Claude CLI, OpenAI API, Google Gemini API
 ├── analyzers/                  # Phase 1: each exports a pure function
 │   ├── fileSizes.ts            # Line count distribution, god-file detection, file classification (data/vendored/code)
 │   ├── directoryStructure.ts   # Depth, breadth, files per dir
@@ -57,17 +70,21 @@ src/
 │   ├── devInfra.ts             # CI, test, linter, pre-commit, type checking, devcontainer, task discovery, observability
 │   ├── security.ts             # Secret detection, .env exposure, sensitive files, lockfile checks
 │   ├── duplicates.ts           # Semantic duplicate detection via export name fingerprinting
-│   └── languageChecks.ts       # Language-specific regex checks (TS/JS, Python, Go, Rust, Java, Ruby, PHP, Swift)
+│   ├── languageChecks.ts       # Language-specific regex checks (TS/JS, Python, Go, Rust, Java, Ruby, PHP, Swift)
+│   ├── gitHistory.ts           # Git history analysis: file importance, hotspots, bus factor, convention trends
+│   └── tokenOptimization.ts    # Token compression recommendations: exclude/compress/ignore-file generation
 ├── mcp/
 │   └── server.ts               # MCP server — manual stdio JSON-RPC, 9 tools for AI agent integration
 ├── configs/
 │   └── registry.ts             # Config format registry — 31 AI tool formats with templates, detection, metadata
 ├── commands/
-│   └── init.ts                 # `llm-sense init` — scaffold 31 AI config files via registry (--tools, --list, --detect)
+│   ├── init.ts                 # `llm-sense init` — scaffold 31 AI config files via registry (--tools, --list, --detect)
+│   └── audit.ts                # `llm-sense audit` — score AI config files across 5 quality dimensions
 ├── phases/
 │   ├── runner.ts               # Orchestrates all phases sequentially, format branching, exit codes
 │   ├── staticAnalysis.ts       # Phase 1: runs all 11 analyzers + optional AST analysis
 │   ├── llmUnderstanding.ts     # Phase 2: Claude CLI → CodebaseUnderstanding
+│   ├── llmLint.ts              # Phase 2c: LLM-powered lint rules — two-pass (AST pre-filter + LLM evaluate)
 │   ├── taskGeneration.ts       # Phase 3: Claude CLI → SyntheticTask[]
 │   ├── empiricalTesting.ts     # Phase 4: parallel task execution in worktrees, correctness verification
 │   ├── scoring.ts              # Phase 5: weighted scoring formulas (12 categories, architecture-aware, custom profiles)
@@ -79,7 +96,8 @@ src/
     ├── badge.ts                # SVG badge generator for --badge flag
     ├── htmlOutput.ts            # Self-contained HTML report (radar chart, bars, heatmap) + HTML comparison view
     ├── comparison.ts           # Side-by-side repo comparison (--compare)
-    └── trend.ts                # ASCII score trend chart from history (--trend)
+    ├── trend.ts                # ASCII score trend chart from history (--trend)
+    └── annotations.ts          # File-level annotations for GitHub Action inline PR comments
 ```
 
 ## Common Patterns
@@ -99,8 +117,20 @@ src/
 
 **Adding a new subcommand:**
 1. Create `src/commands/my-command.ts` with the handler function
-2. Add `program.command('my-command')` in `src/index.ts`
+2. Add `program.command('my-command')` in `src/index.ts` with `.passThroughOptions()` to avoid conflicts with parent options
 3. Subcommands use positional args (not `--path`) to avoid conflicts with the parent's `--path` option
+
+**Adding a custom LLM lint rule:**
+1. Create a `.md` file in `.llm-sense/rules/` in the target repo
+2. Format: `# Rule Name` header, metadata lines (`severity:`, `category:`, `min-complexity:`, `min-lines:`, `pattern:`), `## Description`, `## Evaluation Prompt`
+3. Rules are auto-discovered. Pre-filter criteria control which functions are sent to the LLM.
+4. Built-in rules are in `src/phases/llmLint.ts` BUILTIN_RULES array.
+
+**Adding a new LLM provider:**
+1. Implement the `LlmProvider` interface in `src/core/providers.ts`
+2. Add it to the `PROVIDERS` map
+3. The provider needs `isAvailable()` and `generateStructured()` methods
+4. `resolveProvider()` handles the fallback chain automatically
 
 **Adding a scoring profile:**
 1. Add the profile to `SCORING_PROFILES` in `src/constants.ts` — weights must sum to 1.0
@@ -241,6 +271,39 @@ npm run build && node dist/index.js --skip-empirical --format json --path /path/
 
 # Test --no-ast fallback (regex only)
 npm run build && node dist/index.js --skip-empirical --no-ast --format summary --path /path/to/repo
+
+# Test audit subcommand (config quality scoring)
+npm run build && node dist/index.js audit /path/to/repo
+
+# Test audit with verbose findings
+npm run build && node dist/index.js audit --verbose /path/to/repo
+
+# Test audit JSON output
+npm run build && node dist/index.js audit --format json /path/to/repo > audit.json
+
+# Test git history analysis
+npm run build && node dist/index.js --skip-empirical --git-history --path /path/to/git-repo
+
+# Test git history JSON output
+npm run build && node dist/index.js --skip-empirical --git-history --format json --path /path/to/git-repo | jq '.gitHistory'
+
+# Test LLM lint (requires Claude CLI — runs during non-skip-empirical mode)
+npm run build && node dist/index.js --bugs 0 --features 0 --path /path/to/repo
+
+# Test --no-llm-lint flag (skip LLM lint to save cost)
+npm run build && node dist/index.js --no-llm-lint --bugs 2 --features 2 --path /path/to/repo
+
+# Test LLM lint findings in JSON output
+npm run build && node dist/index.js --bugs 0 --features 0 --format json --path /path/to/repo | jq '.llmLint'
+
+# Test init with OpenAI provider
+OPENAI_API_KEY=sk-... npm run build && node dist/index.js init --provider openai /path/to/repo
+
+# Test init with Google provider
+GOOGLE_API_KEY=... npm run build && node dist/index.js init --provider google /path/to/repo
+
+# Test init provider fallback (invalid provider falls back to Claude CLI)
+npm run build && node dist/index.js init --provider openai --verbose /path/to/repo
 ```
 
 ## Build / Run / Deploy
@@ -293,6 +356,21 @@ npm publish          # publish to npm
 - **Monorepo mode is static-only:** Empirical testing (Phases 2-4) is not supported in monorepo mode. If `--bugs`/`--features` flags are passed with a detected monorepo, a warning is shown suggesting `--no-monorepo` for full analysis.
 - **`--plan` flag removed in v1.3.1:** The improvement roadmap is now always included in the generated report as a "Roadmap" section. The report is the single artifact to pass to an LLM.
 - **Phase 2b timeout:** LLM verification uses a 120s timeout (matching Phase 2). Large repos (500+ files) can take 60-90s for structured output calls.
+- **Audit subcommand uses registry detection:** `llm-sense audit` uses the same `detectExistingFormats()` from the config registry. It also checks CLAUDE.md directly and deduplicates. Code block validation runs `grep` with a 5s timeout per block, capped at 10 blocks per file.
+- **`--git-history` is optional and additive:** The flag enriches the report with git data but never changes scoring. It runs after Phase 1 (static analysis) to leverage AST complexity data for hotspot detection. Auto-skipped for non-git repos.
+- **Git history analyzes last 6 months:** File importance uses commit frequency and recency from the last 6 months. Knowledge concentration (bus factor) analyzes the top 50 most-changed files. All git commands have 5-15s timeouts to avoid hangs.
+- **Commander subcommand option conflicts:** The `audit` subcommand uses `.passThroughOptions()` and `enablePositionalOptions()` on the parent to prevent the parent's `--format` option from intercepting the subcommand's `--format` option.
+- **Dependency graph caps at 60 nodes:** Large repos (hundreds of files) are filtered to show only the top 60 most-connected nodes. This keeps the HTML report responsive and the graph readable.
+- **Dependency graph uses Canvas, not SVG:** The interactive graph uses HTML5 Canvas for performance with many nodes/edges. Force-directed layout runs 200 iterations on page load, then stops. Zoom (wheel), pan (drag empty space), and node drag are supported.
+- **`--annotations` cap at 20:** Annotations are capped at 20 entries sorted by severity (error > warning > info) to avoid flooding PR reviews. Security and god-file errors take priority over info-level naming suggestions.
+- **Import graph is transient:** The `importGraph` field on `StaticAnalysisResult` is populated during static analysis but stripped from JSON output (it's large). It's only used for the HTML dependency graph visualization.
+- **LLM lint runs in Phase 2c (between Phase 2b and Phase 3):** Requires Claude CLI (same as Phase 2). Skipped when `--skip-empirical` or `--no-llm-lint`. Candidates capped at 30 functions, batched in groups of 5 per LLM call. Cost is ~$0.05-0.30 per run depending on repo size.
+- **LLM lint pre-filter uses AST metrics:** If AST analysis ran (no `--no-ast`), function metrics (complexity, nesting, length) drive the pre-filter. Without AST, a regex-based heuristic extracts function blocks from sampled files.
+- **LLM lint scoring penalties:** Errors: -3 pts each (cap 15), warnings: -2 pts each (cap 10). Info findings don't penalize. Penalties are added to Code Quality category.
+- **Custom LLM lint rules:** Place `.md` files in `.llm-sense/rules/` with frontmatter format. Rules are auto-discovered. See built-in rules in `BUILTIN_RULES` array for format reference.
+- **Provider fallback chain:** `--provider` tries the specified provider first, falls back to Claude CLI, then template-based generation. If `OPENAI_API_KEY` is not set and `--provider openai` is specified, it falls back silently.
+- **OpenAI provider uses structured outputs:** Uses `response_format.json_schema` for guaranteed schema compliance. Requires a model that supports structured outputs (gpt-4o, gpt-4o-mini).
+- **Google provider uses Gemini API:** Uses `responseSchema` in `generationConfig`. Cost estimates are approximate based on published pricing.
 
 ## Related Repositories
 
@@ -306,4 +384,8 @@ node -v   # must be >= 18
 claude auth status   # must be logged in for Phases 2-4 and --fix
 ```
 
-No environment variables required. All configuration via CLI flags.
+No environment variables required for default usage. Optional for multi-provider init:
+- `OPENAI_API_KEY` — Required for `--provider openai` (init command)
+- `OPENAI_MODEL` — Override OpenAI model (default: `gpt-4o`)
+- `GOOGLE_API_KEY` — Required for `--provider google` (init command)
+- `GOOGLE_MODEL` — Override Google model (default: `gemini-2.0-flash`)

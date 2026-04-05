@@ -40,6 +40,13 @@ export interface CliOptions {
   profile?: string;
   // v2.0
   noAst: boolean;
+  // v2.1
+  gitHistory: boolean;
+  annotations: boolean;
+  generateIgnore: boolean;
+  // v2.4
+  noLlmLint: boolean;
+  provider?: string;
 }
 
 // ─── Phase 1: Static Analysis ─────────────────────────────
@@ -313,6 +320,9 @@ export interface StaticAnalysisResult {
   contextProfile?: ContextWindowProfile;
   languageChecks?: LanguageCheckResult[];
   astAnalysis?: AstAnalysisResult;
+  gitHistory?: GitHistoryResult;
+  // Import graph edges for dependency visualization (not serialized in JSON output)
+  importGraph?: Array<{ source: string; target: string }>;
 }
 
 // ─── LLM Verification (Phase 2b) ─────────────────────────
@@ -459,6 +469,9 @@ export interface HistoryEntry {
   costUsd: number;
   scoringVersion?: string;
   profile?: string;
+  // v2.3: scoring consistency tracking
+  mode?: 'static-only' | 'full';
+  phase2Cached?: boolean; // true if Phase 2 results were loaded from cache
 }
 
 export interface FinalReport {
@@ -475,6 +488,29 @@ export interface FinalReport {
   totalDurationMs: number;
   generatedAt: string;
   targetPath: string;
+  tokenOptimization?: {
+    excludeRecommendations: Array<{ path: string; tokens: number; reason: string; pattern: string }>;
+    compressRecommendations: Array<{ path: string; tokens: number; estimatedCompressedTokens: number; reason: string; strategy: string }>;
+    potentialSavings: { excludeTokens: number; compressTokens: number; totalTokens: number; savingsPercent: number };
+  };
+  llmLint?: {
+    findings: Array<{
+      ruleId: string;
+      ruleName: string;
+      severity: 'error' | 'warning' | 'info';
+      category: string;
+      file: string;
+      functionName: string;
+      startLine: number;
+      endLine: number;
+      explanation: string;
+      suggestedFix: string;
+    }>;
+    rulesEvaluated: number;
+    candidatesEvaluated: number;
+    filesScanned: number;
+    totalCostUsd: number;
+  };
 }
 
 // ─── Monorepo ────────────────────────────────────────────
@@ -645,4 +681,80 @@ export interface LanguageCheckResult {
 export interface ScoringProfile {
   name: string;
   weights: Record<string, number>;
+}
+
+// ─── v2.1: Config Audit ─────────────────────────────────
+
+export interface AuditDimensionScore {
+  score: number;          // 0-100
+  findings: string[];
+}
+
+export interface AuditConfigResult {
+  file: string;
+  filePath: string;
+  formatId: string;
+  exists: boolean;
+  lines: number;
+  overallScore: number;   // 0-100 aggregate
+  dimensions: {
+    completeness: AuditDimensionScore;
+    accuracy: AuditDimensionScore;
+    freshness: AuditDimensionScore;
+    consistency: AuditDimensionScore;
+    specificity: AuditDimensionScore;
+  };
+  recommendations: string[];
+}
+
+export interface AuditResult {
+  configs: AuditConfigResult[];
+  aggregateScore: number;
+  grade: string;
+  recommendations: string[];
+  timestamp: string;
+}
+
+// ─── v2.1: Git History Analysis ─────────────────────────
+
+export interface FileImportance {
+  path: string;
+  score: number;          // 0-100
+  commitCount: number;
+  lastModified: string;   // ISO date
+  recencyScore: number;   // 0-1
+  frequencyScore: number; // 0-1
+}
+
+export interface Hotspot {
+  path: string;
+  changeFrequency: number;
+  complexity: number;
+  risk: 'high' | 'medium' | 'low';
+}
+
+export interface KnowledgeConcentration {
+  path: string;
+  authors: number;
+  totalCommits: number;
+  dominantAuthor: string;
+  dominantAuthorPct: number;
+}
+
+export interface GitHistoryResult {
+  fileImportance: FileImportance[];
+  hotspots: Hotspot[];
+  knowledgeConcentration: KnowledgeConcentration[];
+  conventionTrend: {
+    direction: 'improving' | 'stable' | 'degrading';
+    recentConsistency: number;
+    olderConsistency: number;
+  };
+  churnComplexityCorrelation: Array<{
+    path: string;
+    churn: number;
+    complexity: number;
+  }>;
+  totalCommitsAnalyzed: number;
+  timespan: { oldest: string; newest: string };
 }

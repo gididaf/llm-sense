@@ -141,21 +141,24 @@ Evaluate:
     ),
   );
 
-  // Convert 1-10 scores to ±15 adjustments
-  // Score 5 = neutral (0 adjustment), 10 = +15, 1 = -15
-  const scaleAdjustment = (score: number) => Math.round((score - 5) * 3);
-
-  const adjustments: LlmVerificationAdjustments = {
-    documentation: scaleAdjustment(data.documentationQuality.score),
-    naming: scaleAdjustment(data.namingClarity.score),
-    coupling: scaleAdjustment(data.architectureClarity.score),
-  };
+  const adjustments = computeLlmAdjustments(data);
 
   return {
     adjustments,
     verification: data,
     costUsd: result.costUsd,
     durationMs: result.durationMs,
+  };
+}
+
+// Convert 1-10 LLM verification scores to ±15 scoring adjustments.
+// Score 5 = neutral (0 adjustment), 10 = +15, 1 = -15
+export function computeLlmAdjustments(data: LlmVerification): LlmVerificationAdjustments {
+  const scaleAdjustment = (score: number) => Math.round((score - 5) * 3);
+  return {
+    documentation: scaleAdjustment(data.documentationQuality.score),
+    naming: scaleAdjustment(data.namingClarity.score),
+    coupling: scaleAdjustment(data.architectureClarity.score),
   };
 }
 
