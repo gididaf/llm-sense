@@ -1,7 +1,7 @@
 import { SCORING_WEIGHTS, SCORING_WEIGHTS_NO_EMPIRICAL, SCORING_PROFILES } from '../constants.js';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { StaticAnalysisResult, TaskExecutionResult, CategoryScore, LanguageCheckResult } from '../types.js';
+import type { StaticAnalysisResult, TaskExecutionResult, CategoryScore, LanguageCheckResult, AstAnalysisResult } from '../types.js';
 
 function clamp(value: number, min: number = 0, max: number = 100): number {
   return Math.round(Math.max(min, Math.min(max, value)));
@@ -427,12 +427,13 @@ export function scoreCoupling(
 }
 
 export function scoreDevInfra(s: StaticAnalysisResult['devInfra']): CategoryScore {
-  // Direct pass-through of the analyzer's score (0-20, scaled to 0-100)
+  // Total possible score from analyzer: 20 (3+3+2+2+2+3+3+2), scaled to 0-100
   const score = clamp(s.score * 5);
 
   const findings: string[] = [];
   const recommendations: string[] = [];
 
+  // Core infra
   if (s.hasCi) findings.push(`CI: ${s.ciFiles.join(', ')}`);
   else recommendations.push('Add a CI configuration (GitHub Actions, GitLab CI, etc.)');
 
@@ -445,6 +446,35 @@ export function scoreDevInfra(s: StaticAnalysisResult['devInfra']): CategoryScor
   if (s.hasPreCommitHooks) findings.push('Pre-commit hooks configured');
   if (s.hasTypeChecking) findings.push('Type checking configured');
   else recommendations.push('Add type checking (tsconfig.json strict mode, mypy, pyright)');
+
+  // Devcontainer
+  if (s.hasDevcontainer) {
+    findings.push(`Devcontainer: ${s.devcontainerFeatures.join(', ')}`);
+  } else {
+    recommendations.push('Add .devcontainer/devcontainer.json for reproducible agent environments (Codespaces/devcontainer)');
+  }
+
+  // Task discovery
+  if (s.hasIssueTemplates) findings.push('Issue templates configured');
+  if (s.hasPrTemplate) findings.push('PR template configured');
+  if (s.hasContributing) findings.push('CONTRIBUTING.md present');
+  if (s.hasChangelog) findings.push('Changelog present');
+  if (!s.hasIssueTemplates && !s.hasPrTemplate) {
+    recommendations.push('Add .github/ISSUE_TEMPLATE/ and PULL_REQUEST_TEMPLATE.md so agents can discover work patterns');
+  }
+  if (s.todoCount > 0) {
+    findings.push(`~${s.todoCount} TODO/FIXME/HACK comments found`);
+  }
+
+  // Observability
+  if (s.hasStructuredLogging) findings.push('Structured logging detected');
+  else recommendations.push('Add a structured logging library (pino, winston, zerolog) for better debugging');
+
+  if (s.hasEnvExample) findings.push('.env.example present');
+  else recommendations.push('Add .env.example to document required environment variables');
+
+  if (s.hasHealthCheck) findings.push('Health check endpoint detected');
+  if (s.hasOpenTelemetry) findings.push('OpenTelemetry configured');
 
   return { name: 'Developer Infrastructure', score, weight: 0, findings, recommendations };
 }
@@ -472,8 +502,8 @@ export function scoreSecurity(s: StaticAnalysisResult['security']): CategoryScor
   return { name: 'Security', score, weight: 0, findings, recommendations };
 }
 
-export function scoreCodeQuality(languageChecks?: LanguageCheckResult[]): CategoryScore {
-  if (!languageChecks || languageChecks.length === 0) {
+export function scoreCodeQuality(languageChecks?: LanguageCheckResult[], astAnalysis?: AstAnalysisResult): CategoryScore {
+  if ((!languageChecks || languageChecks.length === 0) && !astAnalysis) {
     return { name: 'Code Quality', score: 100, weight: 0, findings: ['No language-specific checks applicable'], recommendations: [] };
   }
 
@@ -482,27 +512,108 @@ export function scoreCodeQuality(languageChecks?: LanguageCheckResult[]): Catego
   const findings: string[] = [];
   const recommendations: string[] = [];
 
-  for (const lc of languageChecks) {
-    if (lc.totalPenalty > 0) {
-      totalPenalty += lc.totalPenalty;
-      findings.push(`${lc.language}: -${lc.totalPenalty} pts across ${lc.checks.filter(c => c.occurrences > 0).length} check(s)`);
-    }
+  // Regex-based penalties
+  if (languageChecks) {
+    for (const lc of languageChecks) {
+      if (lc.totalPenalty > 0) {
+        totalPenalty += lc.totalPenalty;
+        findings.push(`${lc.language}: -${lc.totalPenalty} pts across ${lc.checks.filter(c => c.occurrences > 0).length} check(s)`);
+      }
 
-    for (const check of lc.checks) {
-      if (check.occurrences > 0 && check.penalty > 0) {
-        const applied = Math.min(check.occurrences * check.penalty, check.cap);
-        recommendations.push(`Fix ${check.occurrences} ${check.name} issue(s) in ${lc.language} files (-${applied} pts)`);
-      } else if (check.occurrences > 0) {
-        findings.push(`${lc.language}: ${check.occurrences} ${check.name} finding(s) (informational)`);
+      for (const check of lc.checks) {
+        if (check.occurrences > 0 && check.penalty > 0) {
+          const applied = Math.min(check.occurrences * check.penalty, check.cap);
+          recommendations.push(`Fix ${check.occurrences} ${check.name} issue(s) in ${lc.language} files (-${applied} pts)`);
+        } else if (check.occurrences > 0) {
+          findings.push(`${lc.language}: ${check.occurrences} ${check.name} finding(s) (informational)`);
+        }
       }
     }
   }
 
-  const score = clamp(100 - totalPenalty);
-  if (totalPenalty === 0) {
+  // AST-based penalties (tree-sitter)
+  if (astAnalysis) {
+    findings.push(`AST: ${astAnalysis.totalFunctionsAnalyzed} functions in ${astAnalysis.totalFilesAnalyzed} files analyzed`);
+    findings.push(`Avg complexity: ${astAnalysis.avgComplexity.toFixed(1)}, avg nesting: ${astAnalysis.avgNestingDepth.toFixed(1)}, avg length: ${astAnalysis.avgFunctionLength.toFixed(0)} lines`);
+
+    // High average complexity penalty: -2 per point above 5
+    if (astAnalysis.avgComplexity > 5) {
+      const penalty = Math.min(Math.round((astAnalysis.avgComplexity - 5) * 2), 15);
+      totalPenalty += penalty;
+      recommendations.push(`Reduce average cyclomatic complexity from ${astAnalysis.avgComplexity.toFixed(1)} to ≤5 (-${penalty} pts)`);
+    }
+
+    // High max complexity penalty
+    if (astAnalysis.maxComplexity && astAnalysis.maxComplexity.cyclomaticComplexity > 15) {
+      totalPenalty += 5;
+      recommendations.push(`Refactor \`${astAnalysis.maxComplexity.name}\` in ${astAnalysis.maxComplexity.file} (complexity: ${astAnalysis.maxComplexity.cyclomaticComplexity})`);
+    }
+
+    // Deep nesting penalty
+    if (astAnalysis.avgNestingDepth > 3) {
+      const penalty = Math.min(Math.round((astAnalysis.avgNestingDepth - 3) * 3), 10);
+      totalPenalty += penalty;
+      recommendations.push(`Reduce average nesting depth from ${astAnalysis.avgNestingDepth.toFixed(1)} to ≤3 (-${penalty} pts)`);
+    }
+
+    // Long functions penalty
+    if (astAnalysis.avgFunctionLength > 40) {
+      const penalty = Math.min(Math.round((astAnalysis.avgFunctionLength - 40) / 5), 10);
+      totalPenalty += penalty;
+      recommendations.push(`Average function length is ${astAnalysis.avgFunctionLength.toFixed(0)} lines — aim for ≤30`);
+    }
+
+    // Empty catch blocks
+    if (astAnalysis.emptyCatchBlocks > 0) {
+      const penalty = Math.min(astAnalysis.emptyCatchBlocks * 2, 10);
+      totalPenalty += penalty;
+      findings.push(`${astAnalysis.emptyCatchBlocks} empty catch block(s)`);
+      recommendations.push(`Fix ${astAnalysis.emptyCatchBlocks} empty catch block(s) — they silently swallow errors`);
+    }
+
+    // Type annotation coverage
+    if (astAnalysis.typeAnnotationCoverage < 0.5) {
+      findings.push(`Type annotation coverage: ${(astAnalysis.typeAnnotationCoverage * 100).toFixed(0)}%`);
+    }
+
+    // Structural duplicates
+    if (astAnalysis.structuralDuplicates.length > 0) {
+      findings.push(`${astAnalysis.structuralDuplicates.length} structural duplicate(s) detected`);
+      const penalty = Math.min(astAnalysis.structuralDuplicates.length * 2, 10);
+      totalPenalty += penalty;
+      for (const dup of astAnalysis.structuralDuplicates.slice(0, 3)) {
+        recommendations.push(`Consolidate \`${dup.functionA.name}\` (${dup.functionA.file}:${dup.functionA.line}) and \`${dup.functionB.name}\` (${dup.functionB.file}:${dup.functionB.line}) — structurally identical`);
+      }
+    }
+
+    // Call graph insights
+    if (astAnalysis.callGraph) {
+      const cg = astAnalysis.callGraph;
+      if (cg.hotFunctions.length > 0) {
+        findings.push(`Hot functions: ${cg.hotFunctions.slice(0, 3).map(f => `${f.name} (${f.callCount} calls)`).join(', ')}`);
+      }
+      if (cg.isolatedFunctions.length > 5) {
+        findings.push(`${cg.isolatedFunctions.length} potentially unused function(s)`);
+      }
+    }
+
+    // API surface
+    if (astAnalysis.apiSurface) {
+      const api = astAnalysis.apiSurface;
+      if (api.exportedFunctions > 0) {
+        findings.push(`API surface: ${api.exportedFunctions} exported functions, avg complexity ${api.avgExportComplexity.toFixed(1)}`);
+      }
+      if (api.complexExports.length > 0) {
+        recommendations.push(`Simplify complex exports: ${api.complexExports.slice(0, 2).map(e => `${e.name} (cc=${e.complexity})`).join(', ')}`);
+      }
+    }
+  }
+
+  if (totalPenalty === 0 && !astAnalysis) {
     findings.push('No language-specific anti-patterns detected');
   }
 
+  const score = clamp(100 - totalPenalty);
   return { name: 'Code Quality', score, weight: 0, findings, recommendations };
 }
 
@@ -547,7 +658,7 @@ export function computeScores(
     { ...scoreCoupling(staticResult.imports, staticResult.fragmentationRatio, staticResult.duplicates), weight: weights.coupling ?? 0 },
     { ...scoreDevInfra(staticResult.devInfra), weight: weights.devInfra ?? 0 },
     { ...scoreSecurity(staticResult.security), weight: weights.security ?? 0 },
-    { ...scoreCodeQuality(staticResult.languageChecks), weight: weights.codeQuality ?? 0 },
+    { ...scoreCodeQuality(staticResult.languageChecks, staticResult.astAnalysis), weight: weights.codeQuality ?? 0 },
   ];
 
   if (!skipEmpirical) {

@@ -6,7 +6,7 @@ const program = new Command();
 program
   .name('llm-sense')
   .description('Analyze how LLM-friendly a codebase is')
-  .version('1.3.1')
+  .version('2.0.0')
   .option('--path <dir>', 'Path to the codebase to analyze', '.')
   .option('--bugs <n>', 'Number of synthetic bug tasks', '5')
   .option('--features <n>', 'Number of synthetic feature tasks', '5')
@@ -18,7 +18,7 @@ program
   .option('--model <model>', 'Override Claude model for all phases')
   .option('--verbose', 'Show detailed progress output')
   .option('--history', 'Show score history for the target codebase')
-  .option('--format <format>', 'Output format: markdown, json, summary', 'markdown')
+  .option('--format <format>', 'Output format: markdown, json, summary, html', 'markdown')
   .option('--min-score <number>', 'Minimum passing score (exit 1 if below)')
   .option('--badge <path>', 'Generate an SVG score badge at the given path')
   .option('--fix', 'Auto-fix top recommendation using Claude Code')
@@ -40,6 +40,7 @@ program
   .option('--max-iterations <n>', 'Max fix cycles for --auto-improve', '10')
   .option('--max-total-budget <usd>', 'Total budget cap for --auto-improve', '5.00')
   .option('--profile <name>', 'Scoring profile: default, strict, docs, security, or path to .llm-sense/profile.json')
+  .option('--no-ast', 'Skip tree-sitter AST analysis (use regex-only language checks)')
   .action(async (options) => {
     const targetPath = resolve(options.path);
 
@@ -65,8 +66,8 @@ program
     }
 
     const format = options.format ?? 'markdown';
-    if (!['markdown', 'json', 'summary'].includes(format)) {
-      console.error(`Error: Invalid format "${format}". Must be markdown, json, or summary.`);
+    if (!['markdown', 'json', 'summary', 'html'].includes(format)) {
+      console.error(`Error: Invalid format "${format}". Must be markdown, json, summary, or html.`);
       process.exit(2);
     }
 
@@ -83,7 +84,7 @@ program
       model: options.model,
       verbose: options.verbose ?? false,
       history: options.history ?? false,
-      format: format as 'markdown' | 'json' | 'summary',
+      format: format as 'markdown' | 'json' | 'summary' | 'html',
       minScore: options.minScore ? parseInt(options.minScore, 10) : undefined,
       badge: options.badge,
       fix: options.fix ?? false,
@@ -104,6 +105,7 @@ program
       maxIterations: parseInt(options.maxIterations, 10),
       maxTotalBudget: parseFloat(options.maxTotalBudget),
       profile: options.profile,
+      noAst: options.ast === false,
     });
   });
 
@@ -118,13 +120,20 @@ program
 
 program
   .command('init [dir]')
-  .description('Scaffold AI config files (CLAUDE.md, .cursorrules, copilot-instructions.md, AGENTS.md)')
+  .description('Scaffold AI config files for 30+ tools (CLAUDE.md, .cursorrules, .windsurfrules, ...)')
   .option('--verbose', 'Show detailed output')
   .option('--overwrite', 'Overwrite existing config files')
+  .option('--tools <ids>', 'Generate only specific tools (comma-separated IDs)')
+  .option('--list', 'List all supported AI tool config formats')
+  .option('--detect', 'Detect existing configs and generate missing ones')
   .action(async (dir, options) => {
     const targetPath = resolve(dir ?? '.');
     const { runInit } = await import('./commands/init.js');
-    await runInit(targetPath, options.verbose ?? false, options.overwrite ?? false);
+    await runInit(targetPath, options.verbose ?? false, options.overwrite ?? false, {
+      tools: options.tools ? options.tools.split(',').map((s: string) => s.trim()) : undefined,
+      list: options.list ?? false,
+      detect: options.detect ?? false,
+    });
   });
 
 async function main() {

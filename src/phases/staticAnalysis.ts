@@ -15,6 +15,7 @@ import type { StaticAnalysisResult } from '../types.js';
 export async function runStaticAnalysis(
   targetPath: string,
   verbose: boolean,
+  noAst: boolean = false,
 ): Promise<{ result: StaticAnalysisResult; entries: WalkEntry[] }> {
   if (verbose) console.log('  Walking directory tree...');
   const entries = await walkDir(targetPath);
@@ -63,6 +64,24 @@ export async function runStaticAnalysis(
   if (verbose) console.log('  Running language-specific checks...');
   const languageChecks = await runLanguageChecks(entries);
 
+  // AST analysis (tree-sitter) — runs after regex checks, provides deeper insights
+  let astAnalysis: import('../types.js').AstAnalysisResult | undefined;
+  if (!noAst) {
+    try {
+      if (verbose) console.log('  Running AST analysis (tree-sitter)...');
+      const { analyzeWithAst } = await import('../analyzers/astChecks.js');
+      const result = await analyzeWithAst(entries, verbose);
+      if (result) {
+        astAnalysis = result;
+        if (verbose) console.log(`  ✓ AST: ${result.totalFunctionsAnalyzed} functions in ${result.totalFilesAnalyzed} files`);
+      } else if (verbose) {
+        console.log('  AST analysis skipped (no supported files or grammars unavailable)');
+      }
+    } catch (e) {
+      if (verbose) console.log(`  AST analysis failed: ${e instanceof Error ? e.message : e}`);
+    }
+  }
+
   return {
     result: {
       fileSizes,
@@ -79,6 +98,7 @@ export async function runStaticAnalysis(
       fragmentationRatio,
       contextProfile,
       languageChecks,
+      astAnalysis,
     },
     entries,
   };

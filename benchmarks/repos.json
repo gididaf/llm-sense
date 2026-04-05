@@ -1,0 +1,81 @@
+{
+  "description": "Target repositories for llm-sense benchmarking. Chosen to match Factory.ai's showcased repos plus diverse language coverage.",
+  "repos": [
+    {
+      "name": "cockroachdb",
+      "repo": "https://github.com/cockroachdb/cockroach.git",
+      "language": "Go",
+      "description": "Distributed SQL database",
+      "size": "very-large",
+      "factoryAiLevel": 4,
+      "cloneDepth": 1,
+      "notes": "Factory.ai rates this Level 4. ~2M lines of Go."
+    },
+    {
+      "name": "fastapi",
+      "repo": "https://github.com/fastapi/fastapi.git",
+      "language": "Python",
+      "description": "Modern Python web framework",
+      "size": "medium",
+      "factoryAiLevel": 3,
+      "cloneDepth": 1,
+      "notes": "Factory.ai rates this Level 3. Well-documented, type-heavy."
+    },
+    {
+      "name": "express",
+      "repo": "https://github.com/expressjs/express.git",
+      "language": "JavaScript",
+      "description": "Minimal Node.js web framework",
+      "size": "small",
+      "factoryAiLevel": 2,
+      "cloneDepth": 1,
+      "notes": "Factory.ai rates this Level 2. Small, mature, minimal docs."
+    },
+    {
+      "name": "nextjs",
+      "repo": "https://github.com/vercel/next.js.git",
+      "language": "TypeScript",
+      "description": "React framework with SSR/SSG",
+      "size": "very-large",
+      "cloneDepth": 1,
+      "extraFlags": "--no-monorepo",
+      "notes": "Large monorepo. Analyze as single repo for comparable scoring."
+    },
+    {
+      "name": "django",
+      "repo": "https://github.com/django/django.git",
+      "language": "Python",
+      "description": "Python web framework",
+      "size": "large",
+      "cloneDepth": 1,
+      "notes": "Excellent documentation, mature, comprehensive test suite."
+    },
+    {
+      "name": "ripgrep",
+      "repo": "https://github.com/BurntSushi/ripgrep.git",
+      "language": "Rust",
+      "description": "Fast regex search tool",
+      "size": "small",
+      "cloneDepth": 1,
+      "notes": "Well-structured Rust CLI. Good example of clean architecture."
+    },
+    {
+      "name": "spring-boot",
+      "repo": "https://github.com/spring-projects/spring-boot.git",
+      "language": "Java",
+      "description": "Enterprise Java framework",
+      "size": "very-large",
+      "cloneDepth": 1,
+      "notes": "Large Java codebase with extensive configuration patterns."
+    },
+    {
+      "name": "rails",
+      "repo": "https://github.com/rails/rails.git",
+      "language": "Ruby",
+      "description": "Ruby web framework",
+      "size": "large",
+      "cloneDepth": 1,
+      "notes": "Convention-over-configuration. Rich documentation."
+    }
+  ]
+}

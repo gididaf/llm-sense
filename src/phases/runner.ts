@@ -22,9 +22,9 @@ export async function run(options: CliOptions): Promise<void> {
   const startTime = Date.now();
   let totalCostUsd = 0;
 
-  // When outputting JSON or summary, route all progress to stderr
+  // When outputting JSON, summary, or HTML, route all progress to stderr
   // so stdout contains only the machine-readable output
-  const isQuietStdout = options.format === 'json' || options.format === 'summary';
+  const isQuietStdout = options.format === 'json' || options.format === 'summary' || options.format === 'html';
   const log = isQuietStdout
     ? (...args: unknown[]) => console.error(...args)
     : console.log;
@@ -118,7 +118,7 @@ export async function run(options: CliOptions): Promise<void> {
     }
   }
 
-  const { result: staticResult, entries } = await runStaticAnalysis(options.path, options.verbose);
+  const { result: staticResult, entries } = await runStaticAnalysis(options.path, options.verbose, options.noAst);
   log(chalk.green('  ✓') + ` ${staticResult.fileSizes.totalFiles} source files, ${staticResult.fileSizes.totalLines.toLocaleString()} lines analyzed`);
   log('');
 
@@ -272,7 +272,11 @@ export async function run(options: CliOptions): Promise<void> {
   } else if (options.format === 'summary' && !options.compare) {
     process.stdout.write(formatSummary(report) + '\n');
     log(chalk.green('  ✓') + ' Summary written to stdout');
-  } else if (options.format === 'json' || options.format === 'summary') {
+  } else if (options.format === 'html' && !options.compare) {
+    const { generateHtmlReport } = await import('../report/htmlOutput.js');
+    process.stdout.write(generateHtmlReport(report));
+    log(chalk.green('  ✓') + ' HTML report written to stdout');
+  } else if (options.format === 'json' || options.format === 'summary' || options.format === 'html') {
     log(chalk.green('  ✓') + ' Comparison output follows');
   } else {
     // markdown (default) — write report file
@@ -358,6 +362,17 @@ export async function run(options: CliOptions): Promise<void> {
 
       if (options.format === 'json') {
         process.stdout.write(JSON.stringify(formatComparisonJson(comparison), null, 2) + '\n');
+      } else if (options.format === 'html') {
+        const { generateHtmlComparison } = await import('../report/htmlOutput.js');
+        // Build a minimal second report for the HTML comparison
+        const compareRecs = buildExecutableRecommendations(compareCats, compareStatic, null);
+        const reportB: FinalReport = {
+          overallScore: compareScore, grade: compareGrade, categories: compareCats,
+          staticAnalysis: compareStatic, understanding: null, tasks: null, taskResults: [],
+          recommendations: compareRecs, previousScore: null, totalCostUsd: 0,
+          totalDurationMs: 0, generatedAt: new Date().toISOString(), targetPath: options.compare!,
+        };
+        process.stdout.write(generateHtmlComparison(report, reportB));
       } else {
         log(formatComparisonMarkdown(comparison));
       }

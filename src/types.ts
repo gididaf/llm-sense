@@ -14,7 +14,7 @@ export interface CliOptions {
   verbose: boolean;
   history: boolean;
   concurrency?: number;
-  format: 'markdown' | 'json' | 'summary';
+  format: 'markdown' | 'json' | 'summary' | 'html';
   minScore?: number;
   badge?: string;
   fix: boolean;
@@ -38,6 +38,8 @@ export interface CliOptions {
   maxTotalBudget: number;
   // v1.3.0
   profile?: string;
+  // v2.0
+  noAst: boolean;
 }
 
 // ─── Phase 1: Static Analysis ─────────────────────────────
@@ -147,6 +149,18 @@ export interface DevInfraResult {
   hasPreCommitHooks: boolean;
   hasTypeChecking: boolean;
   ciFiles: string[];
+  // v2.0: expanded checks
+  hasDevcontainer: boolean;
+  devcontainerFeatures: string[];
+  hasIssueTemplates: boolean;
+  hasPrTemplate: boolean;
+  hasContributing: boolean;
+  hasChangelog: boolean;
+  todoCount: number;
+  hasStructuredLogging: boolean;
+  hasEnvExample: boolean;
+  hasHealthCheck: boolean;
+  hasOpenTelemetry: boolean;
   score: number;
 }
 
@@ -221,6 +235,68 @@ export interface DuplicatesResult {
   totalFilesScanned: number;
 }
 
+// ─── AST Analysis (tree-sitter) ─────────────────────────
+
+export interface FunctionMetrics {
+  name: string;
+  file: string;
+  startLine: number;
+  endLine: number;
+  lineCount: number;
+  cyclomaticComplexity: number;
+  maxNestingDepth: number;
+  hasTypeAnnotations: boolean;
+  hasDocComment: boolean;
+  parameterCount: number;
+}
+
+export interface StructuralDuplicate {
+  functionA: { name: string; file: string; line: number };
+  functionB: { name: string; file: string; line: number };
+  lineCount: number;
+  structuralHash: string;
+}
+
+export interface CallGraphResult {
+  totalEdges: number;
+  hotFunctions: Array<{ name: string; callCount: number }>;
+  isolatedFunctions: string[];
+  avgFanIn: number;
+}
+
+export interface ApiSurfaceResult {
+  exportedSymbols: number;
+  exportedFunctions: number;
+  avgExportComplexity: number;
+  complexExports: Array<{ name: string; file: string; complexity: number }>;
+}
+
+export interface FunctionScore {
+  name: string;
+  file: string;
+  line: number;
+  score: number;
+  issues: string[];
+}
+
+export interface AstAnalysisResult {
+  functions: FunctionMetrics[];
+  avgComplexity: number;
+  maxComplexity: FunctionMetrics | null;
+  avgNestingDepth: number;
+  maxNestingDepth: FunctionMetrics | null;
+  avgFunctionLength: number;
+  typeAnnotationCoverage: number;
+  emptyCatchBlocks: number;
+  magicNumbers: number;
+  structuralDuplicates: StructuralDuplicate[];
+  callGraph?: CallGraphResult;
+  apiSurface?: ApiSurfaceResult;
+  functionScores?: FunctionScore[];
+  totalFilesAnalyzed: number;
+  totalFunctionsAnalyzed: number;
+}
+
 export interface StaticAnalysisResult {
   fileSizes: FileSizeDistribution;
   directoryStructure: DirectoryStructureResult;
@@ -236,6 +312,7 @@ export interface StaticAnalysisResult {
   fragmentationRatio: number;
   contextProfile?: ContextWindowProfile;
   languageChecks?: LanguageCheckResult[];
+  astAnalysis?: AstAnalysisResult;
 }
 
 // ─── LLM Verification (Phase 2b) ─────────────────────────
