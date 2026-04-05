@@ -1,0 +1,504 @@
+{
+  "version": "1.3.0",
+  "timestamp": "2026-04-05T12:59:50.534Z",
+  "target": "/tmp/llm-sense-benchmarks/spring-boot",
+  "score": 68,
+  "grade": "C",
+  "previousScore": null,
+  "delta": null,
+  "categories": [
+    {
+      "name": "Documentation",
+      "score": 25,
+      "weight": 0.21,
+      "weighted": 5.3,
+      "findings": [
+        "No CLAUDE.md — missing all 8 recommended sections",
+        "Inline comment ratio: 25.5%"
+      ]
+    },
+    {
+      "name": "File Sizes",
+      "score": 90,
+      "weight": 0.14,
+      "weighted": 12.6,
+      "findings": [
+        "Median file: 60 lines, P90: 194 lines",
+        "34 files over 1,000 lines (33 data/vendored excluded from scoring)"
+      ]
+    },
+    {
+      "name": "Structure",
+      "score": 50,
+      "weight": 0.08,
+      "weighted": 4,
+      "findings": [
+        "Max depth: 17, avg depth: 7.7",
+        "Avg 3.7 files per directory"
+      ]
+    },
+    {
+      "name": "Modularity",
+      "score": 95,
+      "weight": 0.1,
+      "weighted": 9.5,
+      "findings": [
+        "Avg 3.7 files/dir, 808 single-file dirs",
+        "0 barrel export files (index.ts/js)"
+      ]
+    },
+    {
+      "name": "Context Efficiency",
+      "score": 78,
+      "weight": 0.1,
+      "weighted": 7.8,
+      "findings": [
+        "8727 source files / 11246 total (78%)",
+        "7 generated files, 15 binary files, 6951 vendored files"
+      ]
+    },
+    {
+      "name": "Naming",
+      "score": 98,
+      "weight": 0.05,
+      "weighted": 4.9,
+      "findings": [
+        "98% per-directory naming consistency"
+      ]
+    },
+    {
+      "name": "Coupling",
+      "score": 100,
+      "weight": 0.06,
+      "weighted": 6,
+      "findings": [
+        "Avg fan-out: 0 imports/file, avg fan-in: 0",
+        "Max dependency chain depth: 0",
+        "Context fragmentation: 0% cross-cluster imports",
+        "20 orphan files (no local imports or importers)"
+      ]
+    },
+    {
+      "name": "Developer Infrastructure",
+      "score": 30,
+      "weight": 0.07,
+      "weighted": 2.1,
+      "findings": [
+        "CI: .github/workflows/build-and-deploy-snapshot.yml, .github/workflows/build-pull-request.yml, .github/workflows/ci.yml, .github/workflows/distribute.yml, .github/workflows/release-milestone.yml, .github/workflows/release.yml, .github/workflows/run-codeql-analysis.yml, .github/workflows/run-system-tests.yml, .github/workflows/trigger-docs-build.yml, .github/workflows/verify.yml",
+        "Issue templates configured",
+        "PR template configured",
+        "Health check endpoint detected"
+      ]
+    },
+    {
+      "name": "Security",
+      "score": 85,
+      "weight": 0.13,
+      "weighted": 11.1,
+      "findings": [
+        "Sensitive files tracked: 172 sensitive file(s) found in tree: cert.pem, key.pem, test-expired.p12..."
+      ]
+    },
+    {
+      "name": "Code Quality",
+      "score": 85,
+      "weight": 0.06,
+      "weighted": 5.1,
+      "findings": [
+        "Java/Kotlin: -5 pts across 1 check(s)",
+        "AST: 1067 functions in 263 files analyzed",
+        "Avg complexity: 1.3, avg nesting: 0.2, avg length: 6 lines",
+        "50 structural duplicate(s) detected",
+        "Hot functions: connectionDetails (63 calls), writeMainClass (31 calls), writeLongNameResource (30 calls)",
+        "20 potentially unused function(s)"
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "id": "rec-1",
+      "title": "Create comprehensive CLAUDE.md",
+      "priority": 1,
+      "estimatedScoreImpact": 15,
+      "estimatedEffort": "30min",
+      "category": "Documentation"
+    },
+    {
+      "id": "rec-3",
+      "title": "Exclude vendored file smoke-test/spring-boot-smoke-test-web-groovy-templates/src/main/resources/static/js/jquery-1.7.2.js (9,404 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-4",
+      "title": "Exclude vendored file core/spring-boot/src/test/java/org/springframework/boot/context/properties/ConfigurationPropertiesTests.java (3,381 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-5",
+      "title": "Exclude vendored file core/spring-boot/src/test/java/org/springframework/boot/SpringApplicationTests.java (2,165 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-2",
+      "title": "Add README.md",
+      "priority": 2,
+      "estimatedScoreImpact": 3,
+      "estimatedEffort": "5min",
+      "category": "Documentation"
+    },
+    {
+      "id": "rec-8",
+      "title": "Split `core/spring-boot/src/main/java/org/springframework/boot/context/config` directory (46 files)",
+      "priority": 2,
+      "estimatedScoreImpact": 3,
+      "estimatedEffort": "2hr",
+      "category": "Modularity"
+    },
+    {
+      "id": "rec-6",
+      "title": "Exclude vendored file module/spring-boot-web-server/src/testFixtures/java/org/springframework/boot/web/server/servlet/AbstractServletWebServerFactoryTests.java (1,924 lines)",
+      "priority": 2,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-7",
+      "title": "Exclude vendored file core/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java (1,877 lines)",
+      "priority": 2,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-9",
+      "title": "Consolidate 808 single-file directories",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "Modularity"
+    },
+    {
+      "id": "rec-10",
+      "title": "Reduce context weight of module/ (52% of token budget)",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "Context Efficiency"
+    }
+  ],
+  "tokenHeatmap": {
+    "entries": [
+      {
+        "path": "module",
+        "tokens": 3927096,
+        "percentage": 52.1,
+        "isContextHog": true
+      },
+      {
+        "path": "core",
+        "tokens": 1826121,
+        "percentage": 24.2,
+        "isContextHog": false
+      },
+      {
+        "path": "smoke-test",
+        "tokens": 390198,
+        "percentage": 5.2,
+        "isContextHog": false
+      },
+      {
+        "path": "documentation",
+        "tokens": 281616,
+        "percentage": 3.7,
+        "isContextHog": false
+      },
+      {
+        "path": "build-plugin",
+        "tokens": 269410,
+        "percentage": 3.6,
+        "isContextHog": false
+      },
+      {
+        "path": "loader",
+        "tokens": 253149,
+        "percentage": 3.4,
+        "isContextHog": false
+      },
+      {
+        "path": "configuration-metadata",
+        "tokens": 228693,
+        "percentage": 3,
+        "isContextHog": false
+      },
+      {
+        "path": "buildpack",
+        "tokens": 144926,
+        "percentage": 1.9,
+        "isContextHog": false
+      },
+      {
+        "path": "cli",
+        "tokens": 76441,
+        "percentage": 1,
+        "isContextHog": false
+      },
+      {
+        "path": "integration-test",
+        "tokens": 71800,
+        "percentage": 1,
+        "isContextHog": false
+      },
+      {
+        "path": "test-support",
+        "tokens": 50724,
+        "percentage": 0.7,
+        "isContextHog": false
+      },
+      {
+        "path": "system-test",
+        "tokens": 14287,
+        "percentage": 0.2,
+        "isContextHog": false
+      }
+    ],
+    "total": 7534461,
+    "totalFiles": 8727
+  },
+  "configDrift": {
+    "totalReferences": 0,
+    "validReferences": 0,
+    "staleReferences": [],
+    "freshnessScore": 100
+  },
+  "security": {
+    "score": 85,
+    "findings": [
+      {
+        "check": "Sensitive files tracked",
+        "severity": "high",
+        "detail": "172 sensitive file(s) found in tree: cert.pem, key.pem, test-expired.p12...",
+        "pointsDeducted": 15
+      }
+    ]
+  },
+  "contextProfile": {
+    "totalSourceTokens": 7534461,
+    "tiers": [
+      {
+        "windowSize": 32000,
+        "label": "32K tokens",
+        "coverage": 0,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 100000,
+        "label": "100K tokens",
+        "coverage": 1,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 200000,
+        "label": "200K tokens",
+        "coverage": 3,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 1000000,
+        "label": "1M tokens",
+        "coverage": 13,
+        "verdict": "Insufficient"
+      }
+    ],
+    "recommendedMinimum": "1M tokens",
+    "bestExperience": "1M tokens",
+    "topConsumers": [
+      {
+        "path": "module",
+        "percentage": 52.1,
+        "tokens": 3927096
+      },
+      {
+        "path": "core",
+        "percentage": 24.2,
+        "tokens": 1826121
+      },
+      {
+        "path": "smoke-test",
+        "percentage": 5.2,
+        "tokens": 390198
+      },
+      {
+        "path": "documentation",
+        "percentage": 3.7,
+        "tokens": 281616
+      },
+      {
+        "path": "build-plugin",
+        "percentage": 3.6,
+        "tokens": 269410
+      }
+    ]
+  },
+  "languageChecks": [
+    {
+      "language": "Java/Kotlin",
+      "totalPenalty": 5,
+      "filesScanned": 100,
+      "checks": [
+        {
+          "name": "raw-types",
+          "occurrences": 5,
+          "penalty": 5
+        }
+      ]
+    }
+  ],
+  "tokenOptimization": {
+    "potentialSavings": {
+      "excludeTokens": 2530930,
+      "compressTokens": 0,
+      "totalTokens": 9398619,
+      "savingsPercent": 27
+    },
+    "excludeRecommendations": [
+      {
+        "path": "documentation/",
+        "tokens": 727110,
+        "reason": "Vendored/third-party code",
+        "pattern": "documentation/**"
+      },
+      {
+        "path": "smoke-test/",
+        "tokens": 635974,
+        "reason": "Vendored/third-party code",
+        "pattern": "smoke-test/**"
+      },
+      {
+        "path": "documentation/spring-boot-docs/src/docs/antora/modules/ROOT/pages/redirect.adoc",
+        "tokens": 70591,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "documentation/spring-boot-docs/src/docs/antora/modules/ROOT/pages/redirect.adoc"
+      },
+      {
+        "path": "smoke-test/spring-boot-smoke-test-web-groovy-templates/src/main/resources/static/js/jquery-1.7.2.js",
+        "tokens": 68616,
+        "reason": "Vendored file (9,404 lines) — replace with package dependency",
+        "pattern": "smoke-test/spring-boot-smoke-test-web-groovy-templates/src/main/resources/static/js/jquery-1.7.2.js"
+      },
+      {
+        "path": "smoke-test/spring-boot-smoke-test-web-thymeleaf/src/main/resources/static/css/bootstrap.min.css",
+        "tokens": 36220,
+        "reason": "Generated/minified file",
+        "pattern": "*.min.css"
+      },
+      {
+        "path": "antora/package-lock.json",
+        "tokens": 36050,
+        "reason": "Generated/minified file",
+        "pattern": "antora/package-lock.json"
+      },
+      {
+        "path": "core/spring-boot/src/test/java/org/springframework/boot/context/properties/ConfigurationPropertiesTests.java",
+        "tokens": 24935,
+        "reason": "Vendored file (3,381 lines) — replace with package dependency",
+        "pattern": "core/spring-boot/src/test/java/org/springframework/boot/context/properties/ConfigurationPropertiesTests.java"
+      },
+      {
+        "path": "platform/spring-boot-dependencies/build.gradle",
+        "tokens": 22341,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "platform/spring-boot-dependencies/build.gradle"
+      },
+      {
+        "path": "documentation/spring-boot-docs/src/docs/antora/modules/reference/pages/testing/spring-boot-applications.adoc",
+        "tokens": 21001,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "documentation/spring-boot-docs/src/docs/antora/modules/reference/pages/testing/spring-boot-applications.adoc"
+      },
+      {
+        "path": "cli/spring-boot-cli/src/test/resources/static/css/bootstrap.min.css",
+        "tokens": 20761,
+        "reason": "Generated/minified file",
+        "pattern": "*.min.css"
+      },
+      {
+        "path": "smoke-test/spring-boot-smoke-test-actuator-custom-security/src/main/resources/static/css/bootstrap.min.css",
+        "tokens": 20761,
+        "reason": "Generated/minified file",
+        "pattern": "*.min.css"
+      },
+      {
+        "path": "smoke-test/spring-boot-smoke-test-actuator-ui/src/main/resources/static/css/bootstrap.min.css",
+        "tokens": 20761,
+        "reason": "Generated/minified file",
+        "pattern": "*.min.css"
+      },
+      {
+        "path": "smoke-test/spring-boot-smoke-test-secure-webflux/src/main/resources/static/css/bootstrap.min.css",
+        "tokens": 20761,
+        "reason": "Generated/minified file",
+        "pattern": "*.min.css"
+      },
+      {
+        "path": "smoke-test/spring-boot-smoke-test-web-groovy-templates/src/main/resources/static/css/bootstrap.min.css",
+        "tokens": 20761,
+        "reason": "Generated/minified file",
+        "pattern": "*.min.css"
+      },
+      {
+        "path": "core/spring-boot/src/test/java/org/springframework/boot/SpringApplicationTests.java",
+        "tokens": 20659,
+        "reason": "Vendored file (2,165 lines) — replace with package dependency",
+        "pattern": "core/spring-boot/src/test/java/org/springframework/boot/SpringApplicationTests.java"
+      },
+      {
+        "path": "module/spring-boot-web-server/src/testFixtures/java/org/springframework/boot/web/server/servlet/AbstractServletWebServerFactoryTests.java",
+        "tokens": 19336,
+        "reason": "Vendored file (1,924 lines) — replace with package dependency",
+        "pattern": "module/spring-boot-web-server/src/testFixtures/java/org/springframework/boot/web/server/servlet/AbstractServletWebServerFactoryTests.java"
+      },
+      {
+        "path": "documentation/spring-boot-docs/src/docs/antora/modules/reference/pages/features/external-config.adoc",
+        "tokens": 18683,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "documentation/spring-boot-docs/src/docs/antora/modules/reference/pages/features/external-config.adoc"
+      },
+      {
+        "path": "buildpack/spring-boot-buildpack-platform/src/test/resources/org/springframework/boot/buildpack/platform/docker/export-symlinks.tar",
+        "tokens": 17920,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "buildpack/spring-boot-buildpack-platform/src/test/resources/org/springframework/boot/buildpack/platform/docker/export-symlinks.tar"
+      },
+      {
+        "path": "core/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java",
+        "tokens": 17580,
+        "reason": "Vendored file (1,877 lines) — replace with package dependency",
+        "pattern": "core/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java"
+      },
+      {
+        "path": "module/spring-boot-webmvc/src/test/java/org/springframework/boot/webmvc/autoconfigure/WebMvcAutoConfigurationTests.java",
+        "tokens": 17555,
+        "reason": "Vendored file (1,780 lines) — replace with package dependency",
+        "pattern": "module/spring-boot-webmvc/src/test/java/org/springframework/boot/webmvc/autoconfigure/WebMvcAutoConfigurationTests.java"
+      }
+    ],
+    "compressRecommendations": []
+  },
+  "empirical": null,
+  "meta": {
+    "duration": 4988,
+    "claudeModel": "default",
+    "mode": "static-only",
+    "scoringVersion": "1.2.0"
+  }
+}

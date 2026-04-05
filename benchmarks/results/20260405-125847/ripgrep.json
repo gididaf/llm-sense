@@ -1,0 +1,481 @@
+{
+  "version": "1.3.0",
+  "timestamp": "2026-04-05T12:59:41.983Z",
+  "target": "/tmp/llm-sense-benchmarks/ripgrep",
+  "score": 65,
+  "grade": "C",
+  "previousScore": null,
+  "delta": null,
+  "categories": [
+    {
+      "name": "Documentation",
+      "score": 35,
+      "weight": 0.21,
+      "weighted": 7.4,
+      "findings": [
+        "README.md: 542 lines",
+        "No CLAUDE.md — missing all 8 recommended sections",
+        "Inline comment ratio: 19.7%"
+      ]
+    },
+    {
+      "name": "File Sizes",
+      "score": 17,
+      "weight": 0.14,
+      "weighted": 2.4,
+      "findings": [
+        "Median file: 177 lines, P90: 1166 lines",
+        "17 files over 1,000 lines (11 data/vendored excluded from scoring)"
+      ]
+    },
+    {
+      "name": "Structure",
+      "score": 100,
+      "weight": 0.08,
+      "weighted": 8,
+      "findings": [
+        "Max depth: 4, avg depth: 2.5",
+        "Avg 4 files per directory"
+      ]
+    },
+    {
+      "name": "Modularity",
+      "score": 95,
+      "weight": 0.1,
+      "weighted": 9.5,
+      "findings": [
+        "Avg 4 files/dir, 9 single-file dirs",
+        "0 barrel export files (index.ts/js)"
+      ]
+    },
+    {
+      "name": "Context Efficiency",
+      "score": 73,
+      "weight": 0.1,
+      "weighted": 7.3,
+      "findings": [
+        "104 source files / 209 total (50%)",
+        "2 generated files, 2 binary files, 1 vendored files"
+      ]
+    },
+    {
+      "name": "Naming",
+      "score": 100,
+      "weight": 0.05,
+      "weighted": 5,
+      "findings": [
+        "100% per-directory naming consistency"
+      ]
+    },
+    {
+      "name": "Coupling",
+      "score": 100,
+      "weight": 0.06,
+      "weighted": 6,
+      "findings": [
+        "Avg fan-out: 0 imports/file, avg fan-in: 0",
+        "Max dependency chain depth: 0",
+        "Context fragmentation: 0% cross-cluster imports",
+        "20 orphan files (no local imports or importers)"
+      ]
+    },
+    {
+      "name": "Developer Infrastructure",
+      "score": 25,
+      "weight": 0.07,
+      "weighted": 1.8,
+      "findings": [
+        "CI: .github/workflows/ci.yml, .github/workflows/release.yml",
+        "Issue templates configured",
+        "Changelog present",
+        "~15 TODO/FIXME/HACK comments found"
+      ]
+    },
+    {
+      "name": "Security",
+      "score": 100,
+      "weight": 0.13,
+      "weighted": 13,
+      "findings": [
+        "No security issues detected"
+      ]
+    },
+    {
+      "name": "Code Quality",
+      "score": 75,
+      "weight": 0.06,
+      "weighted": 4.5,
+      "findings": [
+        "Rust: -10 pts across 2 check(s)",
+        "Rust: 4 unsafe-block finding(s) (informational)",
+        "AST: 2727 functions in 101 files analyzed",
+        "Avg complexity: 1.8, avg nesting: 0.3, avg length: 11 lines",
+        "50 structural duplicate(s) detected",
+        "Hot functions: parse_low_raw (545 calls), printer_contents (101 calls), wfile (74 calls)",
+        "20 potentially unused function(s)"
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "id": "rec-1",
+      "title": "Create comprehensive CLAUDE.md",
+      "priority": 1,
+      "estimatedScoreImpact": 15,
+      "estimatedEffort": "30min",
+      "category": "Documentation"
+    },
+    {
+      "id": "rec-2",
+      "title": "Extract or exclude data file crates/core/flags/defs.rs (7,780 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-3",
+      "title": "Extract or exclude data file crates/printer/src/standard.rs (3,988 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-4",
+      "title": "Extract or exclude data file crates/ignore/src/walk.rs (2,495 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-5",
+      "title": "Extract or exclude data file tests/regression.rs (1,720 lines)",
+      "priority": 2,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-6",
+      "title": "Split crates/globset/src/glob.rs (1,687 lines)",
+      "priority": 2,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-7",
+      "title": "Consolidate 9 single-file directories",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "Modularity"
+    },
+    {
+      "id": "rec-8",
+      "title": "Reduce context weight of crates/ (90% of token budget)",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "Context Efficiency"
+    }
+  ],
+  "tokenHeatmap": {
+    "entries": [
+      {
+        "path": "crates",
+        "tokens": 402652,
+        "percentage": 89.5,
+        "isContextHog": true
+      },
+      {
+        "path": "tests",
+        "tokens": 45913,
+        "percentage": 10.2,
+        "isContextHog": false
+      },
+      {
+        "path": "(root)",
+        "tokens": 562,
+        "percentage": 0.1,
+        "isContextHog": false
+      },
+      {
+        "path": "ci",
+        "tokens": 491,
+        "percentage": 0.1,
+        "isContextHog": false
+      },
+      {
+        "path": "pkg",
+        "tokens": 201,
+        "percentage": 0,
+        "isContextHog": false
+      },
+      {
+        "path": "fuzz",
+        "tokens": 127,
+        "percentage": 0,
+        "isContextHog": false
+      }
+    ],
+    "total": 449946,
+    "totalFiles": 104
+  },
+  "configDrift": {
+    "totalReferences": 0,
+    "validReferences": 0,
+    "staleReferences": [],
+    "freshnessScore": 100
+  },
+  "security": {
+    "score": 100,
+    "findings": []
+  },
+  "contextProfile": {
+    "totalSourceTokens": 449946,
+    "tiers": [
+      {
+        "windowSize": 32000,
+        "label": "32K tokens",
+        "coverage": 7,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 100000,
+        "label": "100K tokens",
+        "coverage": 22,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 200000,
+        "label": "200K tokens",
+        "coverage": 44,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 1000000,
+        "label": "1M tokens",
+        "coverage": 100,
+        "verdict": "Full"
+      }
+    ],
+    "recommendedMinimum": "1M tokens",
+    "bestExperience": "1M tokens",
+    "topConsumers": [
+      {
+        "path": "crates",
+        "percentage": 89.5,
+        "tokens": 402652
+      },
+      {
+        "path": "tests",
+        "percentage": 10.2,
+        "tokens": 45913
+      },
+      {
+        "path": "(root)",
+        "percentage": 0.1,
+        "tokens": 562
+      },
+      {
+        "path": "ci",
+        "percentage": 0.1,
+        "tokens": 491
+      },
+      {
+        "path": "pkg",
+        "percentage": 0,
+        "tokens": 201
+      }
+    ]
+  },
+  "languageChecks": [
+    {
+      "language": "Rust",
+      "totalPenalty": 10,
+      "filesScanned": 100,
+      "checks": [
+        {
+          "name": "excessive-unwrap",
+          "occurrences": 146,
+          "penalty": 10
+        },
+        {
+          "name": "unsafe-block",
+          "occurrences": 4,
+          "penalty": 0
+        }
+      ]
+    }
+  ],
+  "tokenOptimization": {
+    "potentialSavings": {
+      "excludeTokens": 382749,
+      "compressTokens": 32211,
+      "totalTokens": 771381,
+      "savingsPercent": 54
+    },
+    "excludeRecommendations": [
+      {
+        "path": "crates/core/flags/defs.rs",
+        "tokens": 58859,
+        "reason": "Data file (7,780 lines) — extract to separate data store or JSON",
+        "pattern": "crates/core/flags/defs.rs"
+      },
+      {
+        "path": "benchsuite/runs/2016-09-20-ubuntu1604-ec2/raw.csv",
+        "tokens": 56678,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "benchsuite/runs/2016-09-20-ubuntu1604-ec2/raw.csv"
+      },
+      {
+        "path": "crates/printer/src/standard.rs",
+        "tokens": 34072,
+        "reason": "Data file (3,988 lines) — extract to separate data store or JSON",
+        "pattern": "crates/printer/src/standard.rs"
+      },
+      {
+        "path": "benchsuite/runs/2018-01-08-archlinux-cheetah/raw.csv",
+        "tokens": 28735,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "benchsuite/runs/2018-01-08-archlinux-cheetah/raw.csv"
+      },
+      {
+        "path": "benchsuite/runs/2020-10-14-archlinux-frink/raw.csv",
+        "tokens": 22981,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "benchsuite/runs/2020-10-14-archlinux-frink/raw.csv"
+      },
+      {
+        "path": "crates/ignore/src/walk.rs",
+        "tokens": 21273,
+        "reason": "Data file (2,495 lines) — extract to separate data store or JSON",
+        "pattern": "crates/ignore/src/walk.rs"
+      },
+      {
+        "path": "benchsuite/runs/2016-09-22-archlinux-cheetah/raw.csv",
+        "tokens": 17303,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "benchsuite/runs/2016-09-22-archlinux-cheetah/raw.csv"
+      },
+      {
+        "path": "benchsuite/runs/2016-09-17-ubuntu1604-ec2/raw.csv",
+        "tokens": 16244,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "benchsuite/runs/2016-09-17-ubuntu1604-ec2/raw.csv"
+      },
+      {
+        "path": "benchsuite/runs/2022-12-16-archlinux-duff/raw.csv",
+        "tokens": 13949,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "benchsuite/runs/2022-12-16-archlinux-duff/raw.csv"
+      },
+      {
+        "path": "tests/regression.rs",
+        "tokens": 13460,
+        "reason": "Data file (1,720 lines) — extract to separate data store or JSON",
+        "pattern": "tests/regression.rs"
+      },
+      {
+        "path": "benchsuite/benchsuite",
+        "tokens": 11673,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "benchsuite/benchsuite"
+      },
+      {
+        "path": "crates/matcher/src/lib.rs",
+        "tokens": 11659,
+        "reason": "Data file (1,380 lines) — extract to separate data store or JSON",
+        "pattern": "crates/matcher/src/lib.rs"
+      },
+      {
+        "path": "tests/feature.rs",
+        "tokens": 9636,
+        "reason": "Data file (1,175 lines) — extract to separate data store or JSON",
+        "pattern": "tests/feature.rs"
+      },
+      {
+        "path": "benchsuite/runs/2016-12-24-archlinux-cheetah-glibc-jemalloc/raw.csv",
+        "tokens": 5262,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "benchsuite/runs/2016-12-24-archlinux-cheetah-glibc-jemalloc/raw.csv"
+      },
+      {
+        "path": "benchsuite/runs/2016-12-24-archlinux-cheetah-musl-jemalloc/raw.csv",
+        "tokens": 5261,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "benchsuite/runs/2016-12-24-archlinux-cheetah-musl-jemalloc/raw.csv"
+      },
+      {
+        "path": "benchsuite/runs/2016-12-24-archlinux-cheetah-musl-system/raw.csv",
+        "tokens": 5261,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "benchsuite/runs/2016-12-24-archlinux-cheetah-musl-system/raw.csv"
+      },
+      {
+        "path": "benchsuite/runs/2016-12-30-archlinux-cheetah/raw.csv",
+        "tokens": 5260,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "benchsuite/runs/2016-12-30-archlinux-cheetah/raw.csv"
+      },
+      {
+        "path": "benchsuite/runs/2016-12-24-archlinux-cheetah/raw.csv",
+        "tokens": 5257,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "benchsuite/runs/2016-12-24-archlinux-cheetah/raw.csv"
+      },
+      {
+        "path": "benchsuite/runs/2016-12-24-archlinux-cheetah-glibc-system/raw.csv",
+        "tokens": 5257,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "benchsuite/runs/2016-12-24-archlinux-cheetah-glibc-system/raw.csv"
+      },
+      {
+        "path": "crates/core/flags/doc/template.rg.1",
+        "tokens": 3465,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "crates/core/flags/doc/template.rg.1"
+      }
+    ],
+    "compressRecommendations": [
+      {
+        "path": "crates/globset/src/glob.rs",
+        "tokens": 15194,
+        "estimatedCompressedTokens": 6078,
+        "reason": "Large file (1687 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "crates/core/flags/hiargs.rs",
+        "tokens": 14350,
+        "estimatedCompressedTokens": 5740,
+        "reason": "Large file (1481 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "crates/searcher/src/searcher/glue.rs",
+        "tokens": 12487,
+        "estimatedCompressedTokens": 4995,
+        "reason": "Large file (1550 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "crates/ignore/src/dir.rs",
+        "tokens": 11655,
+        "estimatedCompressedTokens": 4662,
+        "reason": "Large file (1306 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      }
+    ]
+  },
+  "empirical": null,
+  "meta": {
+    "duration": 3061,
+    "claudeModel": "default",
+    "mode": "static-only",
+    "scoringVersion": "1.2.0"
+  }
+}

@@ -3,19 +3,33 @@
 > Automated LLM-friendliness scores for well-known open-source repositories.
 > Comparable to [Factory.ai](https://factory.ai) readiness levels.
 
-Last run: **20260405-122607** | llm-sense v1.3.1
+Last run: **20260405-125847** | llm-sense v2.4.0
 
 ## Results
 
 | Repository | Language | Score | Grade | Factory.ai | Top Issue |
 |------------|----------|------:|:-----:|:----------:|-----------|
-| [express](https://github.com/expressjs/express.git) | JavaScript | 77 | B | L2 | Documentation: 35/100 |
+| [express](https://github.com/expressjs/express.git) | JavaScript | 74 | B | L2 | Documentation: 25/100 |
+| [cockroachdb](https://github.com/cockroachdb/cockroach.git) | Go | 73 | B | L4 | File Sizes: 32/100 |
+| [nextjs](https://github.com/vercel/next.js.git) | TypeScript | 73 | B | — | Structure: 50/100 |
+| [fastapi](https://github.com/fastapi/fastapi.git) | Python | 69 | C | L3 | Documentation: 22/100 |
+| [django](https://github.com/django/django.git) | Python | 68 | C | — | Documentation: 27/100 |
+| [spring-boot](https://github.com/spring-projects/spring-boot.git) | Java | 68 | C | — | Documentation: 25/100 |
+| [rails](https://github.com/rails/rails.git) | Ruby | 67 | C | — | Documentation: 27/100 |
+| [ripgrep](https://github.com/BurntSushi/ripgrep.git) | Rust | 65 | C | — | File Sizes: 17/100 |
 
 ## Category Breakdown
 
 | Repository | Code Quality | Context Efficiency | Coupling | Developer Infrastructure | Documentation | File Sizes | Modularity | Naming | Security | Structure |
 |------------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| express | 92 | 85 | 100 | 50 | 35 | 80 | 95 | 100 | 95 | 100 |
+| express | 92 | 85 | 100 | 45 | 25 | 80 | 95 | 100 | 95 | 100 |
+| cockroachdb | 54 | 61 | 100 | 70 | 88 | 32 | 95 | 92 | 80 | 60 |
+| nextjs | 50 | 60 | 100 | 95 | 66 | 70 | 80 | 96 | 85 | 50 |
+| fastapi | 73 | 65 | 95 | 40 | 22 | 75 | 95 | 100 | 95 | 100 |
+| django | 85 | 62 | 100 | 55 | 27 | 56 | 95 | 100 | 90 | 95 |
+| spring-boot | 85 | 78 | 100 | 30 | 25 | 90 | 95 | 98 | 85 | 50 |
+| rails | 75 | 72 | 100 | 65 | 27 | 57 | 90 | 100 | 85 | 75 |
+| ripgrep | 75 | 73 | 100 | 25 | 35 | 17 | 95 | 100 | 100 | 100 |
 
 ## Methodology
 

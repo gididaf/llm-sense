@@ -1,0 +1,1067 @@
+{
+  "version": "1.3.0",
+  "timestamp": "2026-04-05T12:59:33.239Z",
+  "target": "/tmp/llm-sense-benchmarks/nextjs",
+  "score": 73,
+  "grade": "B",
+  "previousScore": null,
+  "delta": null,
+  "categories": [
+    {
+      "name": "Documentation",
+      "score": 66,
+      "weight": 0.21,
+      "weighted": 13.9,
+      "findings": [
+        "CLAUDE.md: 447 lines",
+        "CLAUDE.md sections: 8/8 detected (score: 93/100)",
+        "AI tools detected: Claude Code",
+        "AI config files: AGENTS.md (92/100)",
+        "AI config coverage: 1 tool(s) configured (+3 pts)",
+        "Config drift: 68 stale reference(s) found (freshness: 63%)",
+        "Inline comment ratio: 9.7%"
+      ]
+    },
+    {
+      "name": "File Sizes",
+      "score": 70,
+      "weight": 0.14,
+      "weighted": 9.8,
+      "findings": [
+        "Median file: 14 lines, P90: 100 lines",
+        "221 files over 1,000 lines (108 data/vendored excluded from scoring)"
+      ]
+    },
+    {
+      "name": "Structure",
+      "score": 50,
+      "weight": 0.08,
+      "weighted": 4,
+      "findings": [
+        "Max depth: 13, avg depth: 5.8",
+        "Avg 2 files per directory"
+      ]
+    },
+    {
+      "name": "Modularity",
+      "score": 80,
+      "weight": 0.1,
+      "weighted": 8,
+      "findings": [
+        "Avg 2 files/dir, 5710 single-file dirs",
+        "1454 barrel export files (index.ts/js)"
+      ]
+    },
+    {
+      "name": "Context Efficiency",
+      "score": 60,
+      "weight": 0.1,
+      "weighted": 6,
+      "findings": [
+        "21148 source files / 26606 total (80%)",
+        "435 generated files, 838 binary files, 174 vendored files"
+      ]
+    },
+    {
+      "name": "Naming",
+      "score": 96,
+      "weight": 0.05,
+      "weighted": 4.8,
+      "findings": [
+        "96% per-directory naming consistency"
+      ]
+    },
+    {
+      "name": "Coupling",
+      "score": 100,
+      "weight": 0.06,
+      "weighted": 6,
+      "findings": [
+        "Avg fan-out: 2.3 imports/file, avg fan-in: 1.1",
+        "Max dependency chain depth: 2",
+        "Context fragmentation: 0% cross-cluster imports",
+        "20 orphan files (no local imports or importers)"
+      ]
+    },
+    {
+      "name": "Developer Infrastructure",
+      "score": 95,
+      "weight": 0.07,
+      "weighted": 6.7,
+      "findings": [
+        "CI: .github/workflows/build_and_deploy.yml, .github/workflows/build_and_test.yml, .github/workflows/build_reusable.yml, .github/workflows/code_freeze.yml, .github/workflows/create_release_branch.yml, .github/workflows/deploy_docs.yml, .github/workflows/graphite_ci_optimizer.yml, .github/workflows/integration_tests_reusable.yml, .github/workflows/issue_lock.yml, .github/workflows/issue_stale.yml, .github/workflows/issue_wrong_template.yml, .github/workflows/popular.yml, .github/workflows/pull_request_stats.yml, .github/workflows/release-next-rspack.yml, .github/workflows/retry_deploy_test.yml, .github/workflows/retry_test.yml, .github/workflows/rspack-nextjs-build-integration-tests.yml, .github/workflows/rspack-nextjs-dev-integration-tests.yml, .github/workflows/rspack-update-tests-manifest.yml, .github/workflows/setup-nextjs-build.yml, .github/workflows/test-turbopack-rust-bench-test.yml, .github/workflows/test_e2e_deploy_release.yml, .github/workflows/test_e2e_project_reset_cron.yml, .github/workflows/test_examples.yml, .github/workflows/triage.yml, .github/workflows/trigger_release.yml, .github/workflows/turbopack-benchmark.yml, .github/workflows/turbopack-nextjs-build-integration-tests.yml, .github/workflows/turbopack-nextjs-dev-integration-tests.yml, .github/workflows/turbopack-update-tests-manifest.yml, .github/workflows/update_fonts_data.yml, .github/workflows/update_react.yml, .github/workflows/upload-tests-manifest.yml",
+        "Test command configured",
+        "Linter configured",
+        "Pre-commit hooks configured",
+        "Type checking configured",
+        "Devcontainer: devcontainer.json, image/Dockerfile, extensions",
+        "Issue templates configured",
+        "PR template configured",
+        "CONTRIBUTING.md present",
+        "~3762 TODO/FIXME/HACK comments found",
+        "Structured logging detected",
+        "OpenTelemetry configured"
+      ]
+    },
+    {
+      "name": "Security",
+      "score": 85,
+      "weight": 0.13,
+      "weighted": 11.1,
+      "findings": [
+        "Sensitive files tracked: 8 sensitive file(s) found in tree: localhost-key.pem, localhost.pem, localhost-key.pem..."
+      ]
+    },
+    {
+      "name": "Code Quality",
+      "score": 50,
+      "weight": 0.06,
+      "weighted": 3,
+      "findings": [
+        "TypeScript/JavaScript: -13 pts across 3 check(s)",
+        "TypeScript/JavaScript: 16 dynamic-import finding(s) (informational)",
+        "Rust: -10 pts across 2 check(s)",
+        "Rust: 11 unsafe-block finding(s) (informational)",
+        "Python: -2 pts across 1 check(s)",
+        "AST: 787 functions in 362 files analyzed",
+        "Avg complexity: 3.1, avg nesting: 0.8, avg length: 24 lines",
+        "19 empty catch block(s)",
+        "50 structural duplicate(s) detected",
+        "Hot functions: replace (70 calls), exec (68 calls), parse (65 calls)",
+        "20 potentially unused function(s)",
+        "API surface: 487 exported functions, avg complexity 1.5"
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "id": "rec-2",
+      "title": "Split turbopack/crates/turbopack-ecmascript/tests/benches/packages-bundle.js (46,667 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "half-day",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-3",
+      "title": "Exclude vendored file packages/next/src/compiled/react-dom-experimental/cjs/react-dom-unstable_testing.development.js (33,549 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-4",
+      "title": "Exclude vendored file packages/next/src/compiled/react-dom-experimental/cjs/react-dom-profiling.development.js (33,453 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-5",
+      "title": "Exclude vendored file packages/next/src/compiled/react-dom-experimental/cjs/react-dom-client.development.js (33,066 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-6",
+      "title": "Exclude vendored file packages/next/src/compiled/react-dom/cjs/react-dom-profiling.development.js (31,199 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-9",
+      "title": "Fix 68 stale config references",
+      "priority": 2,
+      "estimatedScoreImpact": 10,
+      "estimatedEffort": "5min",
+      "category": "Documentation"
+    },
+    {
+      "id": "rec-1",
+      "title": "Add README.md",
+      "priority": 2,
+      "estimatedScoreImpact": 3,
+      "estimatedEffort": "5min",
+      "category": "Documentation"
+    },
+    {
+      "id": "rec-7",
+      "title": "Split `packages/next/src/compiled/@babel/runtime/helpers` directory (115 files)",
+      "priority": 2,
+      "estimatedScoreImpact": 3,
+      "estimatedEffort": "2hr",
+      "category": "Modularity"
+    },
+    {
+      "id": "rec-8",
+      "title": "Configure LLM context exclusions for large lockfiles",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "5min",
+      "category": "Context Efficiency"
+    },
+    {
+      "id": "rec-10",
+      "title": "Reduce context weight of packages/ (61% of token budget)",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "Context Efficiency"
+    }
+  ],
+  "tokenHeatmap": {
+    "entries": [
+      {
+        "path": "packages",
+        "tokens": 12383367,
+        "percentage": 61.4,
+        "isContextHog": true
+      },
+      {
+        "path": "turbopack",
+        "tokens": 3402984,
+        "percentage": 16.9,
+        "isContextHog": false
+      },
+      {
+        "path": "test",
+        "tokens": 3074777,
+        "percentage": 15.2,
+        "isContextHog": false
+      },
+      {
+        "path": "crates",
+        "tokens": 648072,
+        "percentage": 3.2,
+        "isContextHog": false
+      },
+      {
+        "path": "examples",
+        "tokens": 468105,
+        "percentage": 2.3,
+        "isContextHog": false
+      },
+      {
+        "path": "scripts",
+        "tokens": 79396,
+        "percentage": 0.4,
+        "isContextHog": false
+      },
+      {
+        "path": "apps",
+        "tokens": 37801,
+        "percentage": 0.2,
+        "isContextHog": false
+      },
+      {
+        "path": "bench",
+        "tokens": 30819,
+        "percentage": 0.2,
+        "isContextHog": false
+      },
+      {
+        "path": "evals",
+        "tokens": 26714,
+        "percentage": 0.1,
+        "isContextHog": false
+      },
+      {
+        "path": "(root)",
+        "tokens": 14516,
+        "percentage": 0.1,
+        "isContextHog": false
+      },
+      {
+        "path": "rspack",
+        "tokens": 14177,
+        "percentage": 0.1,
+        "isContextHog": false
+      },
+      {
+        "path": "turbo",
+        "tokens": 1110,
+        "percentage": 0,
+        "isContextHog": false
+      },
+      {
+        "path": "test-config-errors",
+        "tokens": 108,
+        "percentage": 0,
+        "isContextHog": false
+      }
+    ],
+    "total": 20181946,
+    "totalFiles": 21148
+  },
+  "configDrift": {
+    "totalReferences": 182,
+    "validReferences": 114,
+    "staleReferences": [
+      {
+        "file": "CLAUDE.md",
+        "line": 9,
+        "reference": "npm run monorepo",
+        "type": "command",
+        "reason": "no \"monorepo\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 13,
+        "reference": "npm run packages",
+        "type": "command",
+        "reason": "no \"packages\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 24,
+        "reference": "npm run package.",
+        "type": "command",
+        "reason": "no \"package.\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 30,
+        "reference": "src/cli/next-dev.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 30,
+        "reference": "src/server/dev/next-dev-server.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 31,
+        "reference": "src/cli/next-start.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 31,
+        "reference": "src/server/next-server.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 32,
+        "reference": "src/cli/next-build.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 32,
+        "reference": "src/build/index.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 34,
+        "reference": "packages/next/dist/",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 46,
+        "reference": "packages/*",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 59,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 68,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 75,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 82,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 91,
+        "reference": "test/path/to/test.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 96,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 96,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 98,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 107,
+        "reference": "npm run package.",
+        "type": "command",
+        "reason": "no \"package.\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 124,
+        "reference": "test/path/to/test.test.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 166,
+        "reference": "test/path/to/test.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 241,
+        "reference": "scripts/pr-status/",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 262,
+        "reference": "npm run prettier",
+        "type": "command",
+        "reason": "no \"prettier\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 269,
+        "reference": "test/path/to/test.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 272,
+        "reference": "test/path/to/test.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 347,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 372,
+        "reference": "npm run prettier",
+        "type": "command",
+        "reason": "no \"prettier\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 373,
+        "reference": "npm run eslint",
+        "type": "command",
+        "reason": "no \"eslint\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 381,
+        "reference": "packages/next/**",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 381,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 411,
+        "reference": "packages/next/dist/bin/next",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 428,
+        "reference": "./src/",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "CLAUDE.md",
+        "line": 433,
+        "reference": "packages/next-swc/native/*.node",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 9,
+        "reference": "npm run monorepo",
+        "type": "command",
+        "reason": "no \"monorepo\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 13,
+        "reference": "npm run packages",
+        "type": "command",
+        "reason": "no \"packages\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 24,
+        "reference": "npm run package.",
+        "type": "command",
+        "reason": "no \"package.\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 30,
+        "reference": "src/cli/next-dev.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 30,
+        "reference": "src/server/dev/next-dev-server.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 31,
+        "reference": "src/cli/next-start.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 31,
+        "reference": "src/server/next-server.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 32,
+        "reference": "src/cli/next-build.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 32,
+        "reference": "src/build/index.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 34,
+        "reference": "packages/next/dist/",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 46,
+        "reference": "packages/*",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 59,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 68,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 75,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 82,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 91,
+        "reference": "test/path/to/test.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 96,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 96,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 98,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 107,
+        "reference": "npm run package.",
+        "type": "command",
+        "reason": "no \"package.\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 124,
+        "reference": "test/path/to/test.test.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 166,
+        "reference": "test/path/to/test.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 241,
+        "reference": "scripts/pr-status/",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 262,
+        "reference": "npm run prettier",
+        "type": "command",
+        "reason": "no \"prettier\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 269,
+        "reference": "test/path/to/test.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 272,
+        "reference": "test/path/to/test.ts",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 347,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 372,
+        "reference": "npm run prettier",
+        "type": "command",
+        "reason": "no \"prettier\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 373,
+        "reference": "npm run eslint",
+        "type": "command",
+        "reason": "no \"eslint\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 381,
+        "reference": "packages/next/**",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 381,
+        "reference": "npm run --filter",
+        "type": "command",
+        "reason": "no \"--filter\" script in package.json"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 411,
+        "reference": "packages/next/dist/bin/next",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 428,
+        "reference": "./src/",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 433,
+        "reference": "packages/next-swc/native/*.node",
+        "type": "path",
+        "reason": "file or directory not found"
+      }
+    ],
+    "freshnessScore": 63
+  },
+  "security": {
+    "score": 85,
+    "findings": [
+      {
+        "check": "Sensitive files tracked",
+        "severity": "high",
+        "detail": "8 sensitive file(s) found in tree: localhost-key.pem, localhost.pem, localhost-key.pem...",
+        "pointsDeducted": 15
+      }
+    ]
+  },
+  "contextProfile": {
+    "totalSourceTokens": 20181946,
+    "tiers": [
+      {
+        "windowSize": 32000,
+        "label": "32K tokens",
+        "coverage": 0,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 100000,
+        "label": "100K tokens",
+        "coverage": 0,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 200000,
+        "label": "200K tokens",
+        "coverage": 1,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 1000000,
+        "label": "1M tokens",
+        "coverage": 5,
+        "verdict": "Insufficient"
+      }
+    ],
+    "recommendedMinimum": "1M tokens",
+    "bestExperience": "1M tokens",
+    "topConsumers": [
+      {
+        "path": "packages",
+        "percentage": 61.4,
+        "tokens": 12383367
+      },
+      {
+        "path": "turbopack",
+        "percentage": 16.9,
+        "tokens": 3402984
+      },
+      {
+        "path": "test",
+        "percentage": 15.2,
+        "tokens": 3074777
+      },
+      {
+        "path": "crates",
+        "percentage": 3.2,
+        "tokens": 648072
+      },
+      {
+        "path": "examples",
+        "percentage": 2.3,
+        "tokens": 468105
+      }
+    ]
+  },
+  "languageChecks": [
+    {
+      "language": "TypeScript/JavaScript",
+      "totalPenalty": 13,
+      "filesScanned": 100,
+      "checks": [
+        {
+          "name": "any-type",
+          "occurrences": 8,
+          "penalty": 8
+        },
+        {
+          "name": "dynamic-import",
+          "occurrences": 16,
+          "penalty": 0
+        },
+        {
+          "name": "strict-mode",
+          "occurrences": 1,
+          "penalty": 5
+        }
+      ]
+    },
+    {
+      "language": "Rust",
+      "totalPenalty": 10,
+      "filesScanned": 100,
+      "checks": [
+        {
+          "name": "excessive-unwrap",
+          "occurrences": 140,
+          "penalty": 10
+        },
+        {
+          "name": "unsafe-block",
+          "occurrences": 11,
+          "penalty": 0
+        }
+      ]
+    },
+    {
+      "language": "Python",
+      "totalPenalty": 2,
+      "filesScanned": 1,
+      "checks": [
+        {
+          "name": "missing-type-hints",
+          "occurrences": 2,
+          "penalty": 2
+        }
+      ]
+    }
+  ],
+  "tokenOptimization": {
+    "potentialSavings": {
+      "excludeTokens": 40759609,
+      "compressTokens": 614249,
+      "totalTokens": 35045901,
+      "savingsPercent": 95
+    },
+    "excludeRecommendations": [
+      {
+        "path": "packages/",
+        "tokens": 14246935,
+        "reason": "Vendored/third-party code",
+        "pattern": "packages/**"
+      },
+      {
+        "path": "test/",
+        "tokens": 6956393,
+        "reason": "Vendored/third-party code",
+        "pattern": "test/**"
+      },
+      {
+        "path": "turbopack/",
+        "tokens": 5564285,
+        "reason": "Vendored/third-party code",
+        "pattern": "turbopack/**"
+      },
+      {
+        "path": "packages/next/src/next-devtools/dev-overlay/app.png",
+        "tokens": 859646,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "packages/next/src/next-devtools/dev-overlay/app.png"
+      },
+      {
+        "path": "examples/with-xata/public/xatafly.gif",
+        "tokens": 674622,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "examples/with-xata/public/xatafly.gif"
+      },
+      {
+        "path": "examples/with-stripe-typescript/public/checkout_demo.gif",
+        "tokens": 404027,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "examples/with-stripe-typescript/public/checkout_demo.gif"
+      },
+      {
+        "path": "turbopack/crates/turbopack-ecmascript/tests/analyzer/graph/react-dom-production/resolved-effects.snapshot",
+        "tokens": 388701,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "turbopack/crates/turbopack-ecmascript/tests/analyzer/graph/react-dom-production/resolved-effects.snapshot"
+      },
+      {
+        "path": "examples/with-stripe-typescript/public/elements_demo.gif",
+        "tokens": 377243,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "examples/with-stripe-typescript/public/elements_demo.gif"
+      },
+      {
+        "path": "packages/next/src/compiled/@vercel/og/resvg.wasm",
+        "tokens": 344589,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "packages/next/src/compiled/@vercel/og/resvg.wasm"
+      },
+      {
+        "path": "pnpm-lock.yaml",
+        "tokens": 343817,
+        "reason": "Generated/minified file",
+        "pattern": "pnpm-lock.yaml"
+      },
+      {
+        "path": "packages/next/src/compiled/react-dom-experimental/cjs/react-dom-profiling.development.js",
+        "tokens": 318985,
+        "reason": "Vendored file (33,453 lines) — replace with package dependency",
+        "pattern": "packages/next/src/compiled/react-dom-experimental/cjs/react-dom-profiling.development.js"
+      },
+      {
+        "path": "packages/next/src/compiled/react-dom-experimental/cjs/react-dom-unstable_testing.development.js",
+        "tokens": 318984,
+        "reason": "Vendored file (33,549 lines) — replace with package dependency",
+        "pattern": "packages/next/src/compiled/react-dom-experimental/cjs/react-dom-unstable_testing.development.js"
+      },
+      {
+        "path": "packages/next/src/compiled/react-dom-experimental/cjs/react-dom-client.development.js",
+        "tokens": 314848,
+        "reason": "Vendored file (33,066 lines) — replace with package dependency",
+        "pattern": "packages/next/src/compiled/react-dom-experimental/cjs/react-dom-client.development.js"
+      },
+      {
+        "path": "packages/next/src/compiled/react-dom/cjs/react-dom-profiling.development.js",
+        "tokens": 296399,
+        "reason": "Vendored file (31,199 lines) — replace with package dependency",
+        "pattern": "packages/next/src/compiled/react-dom/cjs/react-dom-profiling.development.js"
+      },
+      {
+        "path": "packages/next/src/compiled/react-dom/cjs/react-dom-client.development.js",
+        "tokens": 292246,
+        "reason": "Vendored file (30,811 lines) — replace with package dependency",
+        "pattern": "packages/next/src/compiled/react-dom/cjs/react-dom-client.development.js"
+      },
+      {
+        "path": "packages/next/next_error_code_swc_plugin.wasm",
+        "tokens": 262452,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "packages/next/next_error_code_swc_plugin.wasm"
+      },
+      {
+        "path": "examples/with-flow/with-flow.gif",
+        "tokens": 253156,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "examples/with-flow/with-flow.gif"
+      },
+      {
+        "path": "turbopack/crates/turbopack-ecmascript/tests/benches/react-dom-client.development.js",
+        "tokens": 243041,
+        "reason": "Vendored file (25,669 lines) — replace with package dependency",
+        "pattern": "turbopack/crates/turbopack-ecmascript/tests/benches/react-dom-client.development.js"
+      },
+      {
+        "path": "test/e2e/app-dir/metadata-image-files/app/opengraph-image.png",
+        "tokens": 237572,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "test/e2e/app-dir/metadata-image-files/app/opengraph-image.png"
+      },
+      {
+        "path": "turbopack/crates/turbopack-ecmascript/tests/analyzer/graph/md5_2/graph-effects.snapshot",
+        "tokens": 193700,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "turbopack/crates/turbopack-ecmascript/tests/analyzer/graph/md5_2/graph-effects.snapshot"
+      }
+    ],
+    "compressRecommendations": [
+      {
+        "path": "turbopack/crates/turbopack-ecmascript/tests/benches/packages-bundle.js",
+        "tokens": 539685,
+        "estimatedCompressedTokens": 215874,
+        "reason": "Large file (46667 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "turbopack/crates/turbopack-ecmascript/tests/benches/app-page-turbo.runtime.prod.js",
+        "tokens": 272427,
+        "estimatedCompressedTokens": 108971,
+        "reason": "Large file (30073 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "packages/font/src/google/index.ts",
+        "tokens": 211637,
+        "estimatedCompressedTokens": 84655,
+        "reason": "Large file (30005 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      }
+    ]
+  },
+  "empirical": null,
+  "meta": {
+    "duration": 8749,
+    "claudeModel": "default",
+    "mode": "static-only",
+    "scoringVersion": "1.2.0"
+  }
+}

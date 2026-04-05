@@ -1,0 +1,500 @@
+{
+  "version": "1.3.0",
+  "timestamp": "2026-04-05T12:59:16.187Z",
+  "target": "/tmp/llm-sense-benchmarks/fastapi",
+  "score": 69,
+  "grade": "C",
+  "previousScore": null,
+  "delta": null,
+  "categories": [
+    {
+      "name": "Documentation",
+      "score": 22,
+      "weight": 0.21,
+      "weighted": 4.6,
+      "findings": [
+        "README.md: 549 lines",
+        "No CLAUDE.md — missing all 8 recommended sections",
+        "Inline comment ratio: 1.3%"
+      ]
+    },
+    {
+      "name": "File Sizes",
+      "score": 75,
+      "weight": 0.14,
+      "weighted": 10.5,
+      "findings": [
+        "Median file: 30 lines, P90: 208 lines",
+        "8 files over 1,000 lines (4 data/vendored excluded from scoring)"
+      ]
+    },
+    {
+      "name": "Structure",
+      "score": 100,
+      "weight": 0.08,
+      "weighted": 8,
+      "findings": [
+        "Max depth: 6, avg depth: 3.5",
+        "Avg 5.6 files per directory"
+      ]
+    },
+    {
+      "name": "Modularity",
+      "score": 95,
+      "weight": 0.1,
+      "weighted": 9.5,
+      "findings": [
+        "Avg 5.6 files/dir, 17 single-file dirs",
+        "0 barrel export files (index.ts/js)"
+      ]
+    },
+    {
+      "name": "Context Efficiency",
+      "score": 65,
+      "weight": 0.1,
+      "weighted": 6.5,
+      "findings": [
+        "1131 source files / 2952 total (38%)",
+        "0 generated files, 235 binary files, 1 vendored files"
+      ]
+    },
+    {
+      "name": "Naming",
+      "score": 100,
+      "weight": 0.05,
+      "weighted": 5,
+      "findings": [
+        "100% per-directory naming consistency"
+      ]
+    },
+    {
+      "name": "Coupling",
+      "score": 95,
+      "weight": 0.06,
+      "weighted": 5.7,
+      "findings": [
+        "Avg fan-out: 0 imports/file, avg fan-in: 0",
+        "Max dependency chain depth: 0",
+        "Context fragmentation: 0% cross-cluster imports",
+        "20 orphan files (no local imports or importers)",
+        "14 potential duplicate pair(s) detected"
+      ]
+    },
+    {
+      "name": "Developer Infrastructure",
+      "score": 40,
+      "weight": 0.07,
+      "weighted": 2.8,
+      "findings": [
+        "CI: .github/workflows/add-to-project.yml, .github/workflows/build-docs.yml, .github/workflows/contributors.yml, .github/workflows/deploy-docs.yml, .github/workflows/detect-conflicts.yml, .github/workflows/issue-manager.yml, .github/workflows/label-approved.yml, .github/workflows/labeler.yml, .github/workflows/latest-changes.yml, .github/workflows/notify-translations.yml, .github/workflows/people.yml, .github/workflows/pre-commit.yml, .github/workflows/publish.yml, .github/workflows/smokeshow.yml, .github/workflows/sponsors.yml, .github/workflows/test-redistribute.yml, .github/workflows/test.yml, .github/workflows/topic-repos.yml, .github/workflows/translate.yml",
+        "Pre-commit hooks configured",
+        "Type checking configured",
+        "Issue templates configured"
+      ]
+    },
+    {
+      "name": "Security",
+      "score": 95,
+      "weight": 0.13,
+      "weighted": 12.4,
+      "findings": [
+        "Missing lockfile: Dependency file found but no lockfile — builds may not be reproducible"
+      ]
+    },
+    {
+      "name": "Code Quality",
+      "score": 73,
+      "weight": 0.06,
+      "weighted": 4.4,
+      "findings": [
+        "Python: -10 pts across 1 check(s)",
+        "AST: 1919 functions in 333 files analyzed",
+        "Avg complexity: 1.4, avg nesting: 0.2, avg length: 23 lines",
+        "1 empty catch block(s)",
+        "Type annotation coverage: 47%",
+        "50 structural duplicate(s) detected",
+        "Hot functions: get (1267 calls), post (231 calls), Depends (198 calls)",
+        "20 potentially unused function(s)"
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "id": "rec-1",
+      "title": "Create comprehensive CLAUDE.md",
+      "priority": 1,
+      "estimatedScoreImpact": 15,
+      "estimatedEffort": "30min",
+      "category": "Documentation"
+    },
+    {
+      "id": "rec-3",
+      "title": "Extract or exclude data file tests/test_include_router_defaults_overrides.py (7,305 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-4",
+      "title": "Split fastapi/routing.py (4,957 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "half-day",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-5",
+      "title": "Split fastapi/applications.py (4,750 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "half-day",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-6",
+      "title": "Extract or exclude data file fastapi/param_functions.py (2,461 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-8",
+      "title": "Split `tests` directory (207 files)",
+      "priority": 2,
+      "estimatedScoreImpact": 3,
+      "estimatedEffort": "2hr",
+      "category": "Modularity"
+    },
+    {
+      "id": "rec-7",
+      "title": "Extract or exclude data file tests/test_generate_unique_id_function.py (1,700 lines)",
+      "priority": 2,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-2",
+      "title": "Add inline comments to complex functions",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "Documentation",
+      "dependsOn": [
+        "rec-4",
+        "rec-5",
+        "rec-8"
+      ]
+    },
+    {
+      "id": "rec-9",
+      "title": "Consolidate 17 single-file directories",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "Modularity"
+    },
+    {
+      "id": "rec-10",
+      "title": "Reduce context weight of tests/ (71% of token budget)",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "Context Efficiency"
+    }
+  ],
+  "tokenHeatmap": {
+    "entries": [
+      {
+        "path": "tests",
+        "tokens": 677243,
+        "percentage": 71.1,
+        "isContextHog": true
+      },
+      {
+        "path": "fastapi",
+        "tokens": 175406,
+        "percentage": 18.4,
+        "isContextHog": false
+      },
+      {
+        "path": "docs_src",
+        "tokens": 53717,
+        "percentage": 5.6,
+        "isContextHog": false
+      },
+      {
+        "path": "scripts",
+        "tokens": 40904,
+        "percentage": 4.3,
+        "isContextHog": false
+      },
+      {
+        "path": "docs",
+        "tokens": 4942,
+        "percentage": 0.5,
+        "isContextHog": false
+      }
+    ],
+    "total": 952212,
+    "totalFiles": 1131
+  },
+  "configDrift": {
+    "totalReferences": 0,
+    "validReferences": 0,
+    "staleReferences": [],
+    "freshnessScore": 100
+  },
+  "security": {
+    "score": 95,
+    "findings": [
+      {
+        "check": "Missing lockfile",
+        "severity": "medium",
+        "detail": "Dependency file found but no lockfile — builds may not be reproducible",
+        "pointsDeducted": 5
+      }
+    ]
+  },
+  "contextProfile": {
+    "totalSourceTokens": 952212,
+    "tiers": [
+      {
+        "windowSize": 32000,
+        "label": "32K tokens",
+        "coverage": 3,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 100000,
+        "label": "100K tokens",
+        "coverage": 11,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 200000,
+        "label": "200K tokens",
+        "coverage": 21,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 1000000,
+        "label": "1M tokens",
+        "coverage": 100,
+        "verdict": "Full"
+      }
+    ],
+    "recommendedMinimum": "1M tokens",
+    "bestExperience": "1M tokens",
+    "topConsumers": [
+      {
+        "path": "tests",
+        "percentage": 71.1,
+        "tokens": 677243
+      },
+      {
+        "path": "fastapi",
+        "percentage": 18.4,
+        "tokens": 175406
+      },
+      {
+        "path": "docs_src",
+        "percentage": 5.6,
+        "tokens": 53717
+      },
+      {
+        "path": "scripts",
+        "percentage": 4.3,
+        "tokens": 40904
+      },
+      {
+        "path": "docs",
+        "percentage": 0.5,
+        "tokens": 4942
+      }
+    ]
+  },
+  "languageChecks": [
+    {
+      "language": "Python",
+      "totalPenalty": 10,
+      "filesScanned": 100,
+      "checks": [
+        {
+          "name": "missing-type-hints",
+          "occurrences": 35,
+          "penalty": 10
+        }
+      ]
+    }
+  ],
+  "tokenOptimization": {
+    "potentialSavings": {
+      "excludeTokens": 4620583,
+      "compressTokens": 70756,
+      "totalTokens": 8345176,
+      "savingsPercent": 56
+    },
+    "excludeRecommendations": [
+      {
+        "path": "docs/en/docs/img/deployment/https/https03.drawio.svg",
+        "tokens": 307683,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/deployment/https/https03.drawio.svg"
+      },
+      {
+        "path": "uv.lock",
+        "tokens": 278331,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "uv.lock"
+      },
+      {
+        "path": "docs/en/docs/img/deployment/https/https.drawio.svg",
+        "tokens": 165726,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/deployment/https/https.drawio.svg"
+      },
+      {
+        "path": "docs/en/docs/img/deployment/https/https06.drawio.svg",
+        "tokens": 160526,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/deployment/https/https06.drawio.svg"
+      },
+      {
+        "path": "docs/en/docs/img/deployment/https/https05.drawio.svg",
+        "tokens": 159808,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/deployment/https/https05.drawio.svg"
+      },
+      {
+        "path": "docs/en/docs/img/tutorial/bigger-applications/package.drawio.svg",
+        "tokens": 154729,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/tutorial/bigger-applications/package.drawio.svg"
+      },
+      {
+        "path": "tests/test_include_router_defaults_overrides.py",
+        "tokens": 98716,
+        "reason": "Data file (7,305 lines) — extract to separate data store or JSON",
+        "pattern": "tests/test_include_router_defaults_overrides.py"
+      },
+      {
+        "path": "docs/en/docs/img/sponsors/fern.svg",
+        "tokens": 89413,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/sponsors/fern.svg"
+      },
+      {
+        "path": "docs/en/docs/img/async/parallel-burgers/parallel-burgers-01.png",
+        "tokens": 56498,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/async/parallel-burgers/parallel-burgers-01.png"
+      },
+      {
+        "path": "docs/en/docs/img/sponsors/jina.svg",
+        "tokens": 55109,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/sponsors/jina.svg"
+      },
+      {
+        "path": "docs/en/docs/img/async/parallel-burgers/parallel-burgers-04.png",
+        "tokens": 54857,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/async/parallel-burgers/parallel-burgers-04.png"
+      },
+      {
+        "path": "docs/en/docs/img/async/parallel-burgers/parallel-burgers-02.png",
+        "tokens": 50911,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/async/parallel-burgers/parallel-burgers-02.png"
+      },
+      {
+        "path": "docs/en/docs/img/async/concurrent-burgers/concurrent-burgers-01.png",
+        "tokens": 50848,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/async/concurrent-burgers/concurrent-burgers-01.png"
+      },
+      {
+        "path": "docs/en/docs/img/fastapi-documentary.jpg",
+        "tokens": 47927,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/fastapi-documentary.jpg"
+      },
+      {
+        "path": "docs/en/docs/img/async/parallel-burgers/parallel-burgers-05.png",
+        "tokens": 46279,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/async/parallel-burgers/parallel-burgers-05.png"
+      },
+      {
+        "path": "docs/en/docs/img/tutorial/debugging/image01.png",
+        "tokens": 43404,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/tutorial/debugging/image01.png"
+      },
+      {
+        "path": "docs/en/docs/img/async/concurrent-burgers/concurrent-burgers-03.png",
+        "tokens": 43236,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/async/concurrent-burgers/concurrent-burgers-03.png"
+      },
+      {
+        "path": "docs/en/docs/img/async/concurrent-burgers/concurrent-burgers-07.png",
+        "tokens": 42492,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/async/concurrent-burgers/concurrent-burgers-07.png"
+      },
+      {
+        "path": "docs/en/docs/img/async/parallel-burgers/parallel-burgers-03.png",
+        "tokens": 42157,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/async/parallel-burgers/parallel-burgers-03.png"
+      },
+      {
+        "path": "docs/en/docs/img/async/concurrent-burgers/concurrent-burgers-02.png",
+        "tokens": 41748,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/en/docs/img/async/concurrent-burgers/concurrent-burgers-02.png"
+      }
+    ],
+    "compressRecommendations": [
+      {
+        "path": "fastapi/routing.py",
+        "tokens": 49408,
+        "estimatedCompressedTokens": 19763,
+        "reason": "Large file (4957 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "fastapi/applications.py",
+        "tokens": 45734,
+        "estimatedCompressedTokens": 18294,
+        "reason": "Large file (4750 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "tests/test_response_model_as_return_annotation.py",
+        "tokens": 12879,
+        "estimatedCompressedTokens": 5152,
+        "reason": "Large file (1122 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "fastapi/dependencies/utils.py",
+        "tokens": 9907,
+        "estimatedCompressedTokens": 3963,
+        "reason": "Large file (1058 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      }
+    ]
+  },
+  "empirical": null,
+  "meta": {
+    "duration": 3317,
+    "claudeModel": "default",
+    "mode": "static-only",
+    "scoringVersion": "1.2.0"
+  }
+}

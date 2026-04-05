@@ -1,0 +1,142 @@
+{
+  "timestamp": "20260405-125847",
+  "llmSenseVersion": "2.4.0",
+  "repos": [
+    {
+      "name": "express",
+      "score": 74,
+      "grade": "B",
+      "categories": {
+        "Documentation": 25,
+        "File Sizes": 80,
+        "Structure": 100,
+        "Modularity": 95,
+        "Context Efficiency": 85,
+        "Naming": 100,
+        "Coupling": 100,
+        "Developer Infrastructure": 45,
+        "Security": 95,
+        "Code Quality": 92
+      }
+    },
+    {
+      "name": "cockroachdb",
+      "score": 73,
+      "grade": "B",
+      "categories": {
+        "Documentation": 88,
+        "File Sizes": 32,
+        "Structure": 60,
+        "Modularity": 95,
+        "Context Efficiency": 61,
+        "Naming": 92,
+        "Coupling": 100,
+        "Developer Infrastructure": 70,
+        "Security": 80,
+        "Code Quality": 54
+      }
+    },
+    {
+      "name": "nextjs",
+      "score": 73,
+      "grade": "B",
+      "categories": {
+        "Documentation": 66,
+        "File Sizes": 70,
+        "Structure": 50,
+        "Modularity": 80,
+        "Context Efficiency": 60,
+        "Naming": 96,
+        "Coupling": 100,
+        "Developer Infrastructure": 95,
+        "Security": 85,
+        "Code Quality": 50
+      }
+    },
+    {
+      "name": "fastapi",
+      "score": 69,
+      "grade": "C",
+      "categories": {
+        "Documentation": 22,
+        "File Sizes": 75,
+        "Structure": 100,
+        "Modularity": 95,
+        "Context Efficiency": 65,
+        "Naming": 100,
+        "Coupling": 95,
+        "Developer Infrastructure": 40,
+        "Security": 95,
+        "Code Quality": 73
+      }
+    },
+    {
+      "name": "django",
+      "score": 68,
+      "grade": "C",
+      "categories": {
+        "Documentation": 27,
+        "File Sizes": 56,
+        "Structure": 95,
+        "Modularity": 95,
+        "Context Efficiency": 62,
+        "Naming": 100,
+        "Coupling": 100,
+        "Developer Infrastructure": 55,
+        "Security": 90,
+        "Code Quality": 85
+      }
+    },
+    {
+      "name": "spring-boot",
+      "score": 68,
+      "grade": "C",
+      "categories": {
+        "Documentation": 25,
+        "File Sizes": 90,
+        "Structure": 50,
+        "Modularity": 95,
+        "Context Efficiency": 78,
+        "Naming": 98,
+        "Coupling": 100,
+        "Developer Infrastructure": 30,
+        "Security": 85,
+        "Code Quality": 85
+      }
+    },
+    {
+      "name": "rails",
+      "score": 67,
+      "grade": "C",
+      "categories": {
+        "Documentation": 27,
+        "File Sizes": 57,
+        "Structure": 75,
+        "Modularity": 90,
+        "Context Efficiency": 72,
+        "Naming": 100,
+        "Coupling": 100,
+        "Developer Infrastructure": 65,
+        "Security": 85,
+        "Code Quality": 75
+      }
+    },
+    {
+      "name": "ripgrep",
+      "score": 65,
+      "grade": "C",
+      "categories": {
+        "Documentation": 35,
+        "File Sizes": 17,
+        "Structure": 100,
+        "Modularity": 95,
+        "Context Efficiency": 73,
+        "Naming": 100,
+        "Coupling": 100,
+        "Developer Infrastructure": 25,
+        "Security": 100,
+        "Code Quality": 75
+      }
+    }
+  ]
+}

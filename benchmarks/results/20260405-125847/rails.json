@@ -1,0 +1,663 @@
+{
+  "version": "1.3.0",
+  "timestamp": "2026-04-05T12:59:56.719Z",
+  "target": "/tmp/llm-sense-benchmarks/rails",
+  "score": 67,
+  "grade": "C",
+  "previousScore": null,
+  "delta": null,
+  "categories": [
+    {
+      "name": "Documentation",
+      "score": 27,
+      "weight": 0.21,
+      "weighted": 5.7,
+      "findings": [
+        "README.md: 103 lines",
+        "No CLAUDE.md — missing all 8 recommended sections",
+        "AI config files: AGENTS.md (91/100)",
+        "AI config coverage: 1 tool(s) configured (+3 pts)",
+        "Config drift: 8 stale reference(s) found (freshness: 0%)",
+        "Inline comment ratio: 13.8%"
+      ]
+    },
+    {
+      "name": "File Sizes",
+      "score": 57,
+      "weight": 0.14,
+      "weighted": 8,
+      "findings": [
+        "Median file: 62 lines, P90: 360 lines",
+        "97 files over 1,000 lines (32 data/vendored excluded from scoring)"
+      ]
+    },
+    {
+      "name": "Structure",
+      "score": 75,
+      "weight": 0.08,
+      "weighted": 6,
+      "findings": [
+        "Max depth: 11, avg depth: 4.6",
+        "Avg 5.7 files per directory"
+      ]
+    },
+    {
+      "name": "Modularity",
+      "score": 90,
+      "weight": 0.1,
+      "weighted": 9,
+      "findings": [
+        "Avg 5.7 files/dir, 270 single-file dirs",
+        "4 barrel export files (index.ts/js)"
+      ]
+    },
+    {
+      "name": "Context Efficiency",
+      "score": 72,
+      "weight": 0.1,
+      "weighted": 7.2,
+      "findings": [
+        "3451 source files / 4829 total (72%)",
+        "3 generated files, 91 binary files, 18 vendored files"
+      ]
+    },
+    {
+      "name": "Naming",
+      "score": 100,
+      "weight": 0.05,
+      "weighted": 5,
+      "findings": [
+        "100% per-directory naming consistency"
+      ]
+    },
+    {
+      "name": "Coupling",
+      "score": 100,
+      "weight": 0.06,
+      "weighted": 6,
+      "findings": [
+        "Avg fan-out: 2.3 imports/file, avg fan-in: 1.2",
+        "Max dependency chain depth: 1",
+        "Context fragmentation: 0% cross-cluster imports",
+        "20 orphan files (no local imports or importers)"
+      ]
+    },
+    {
+      "name": "Developer Infrastructure",
+      "score": 65,
+      "weight": 0.07,
+      "weighted": 4.6,
+      "findings": [
+        "CI: .github/workflows/devcontainer-shellcheck.yml, .github/workflows/devcontainer-smoke-test.yml, .github/workflows/labeler.yml, .github/workflows/more-info-needed.yml, .github/workflows/rail_inspector.yml, .github/workflows/rails-new-docker.yml, .github/workflows/rails_releaser_tests.yml, .github/workflows/release.yml, .github/workflows/stale.yml",
+        "Test command configured",
+        "Linter configured",
+        "Devcontainer: devcontainer.json, postCreateCommand, extensions",
+        "Issue templates configured",
+        "PR template configured",
+        "CONTRIBUTING.md present",
+        "~103 TODO/FIXME/HACK comments found"
+      ]
+    },
+    {
+      "name": "Security",
+      "score": 85,
+      "weight": 0.13,
+      "weighted": 11.1,
+      "findings": [
+        "Sensitive files tracked: 2 sensitive file(s) found in tree: secrets.yml, credentials.yml.tt",
+        "Hardcoded secrets: 1 file(s) contain potential hardcoded secrets: action_controller_advanced_topics.md"
+      ]
+    },
+    {
+      "name": "Code Quality",
+      "score": 75,
+      "weight": 0.06,
+      "weighted": 4.5,
+      "findings": [
+        "Ruby: 4 monkey-patching finding(s) (informational)",
+        "AST: 3679 functions in 285 files analyzed",
+        "Avg complexity: 1.7, avg nesting: 0.4, avg length: 6 lines",
+        "8 empty catch block(s)",
+        "50 structural duplicate(s) detected",
+        "Hot functions: test (635 calls), get (386 calls), render (200 calls)",
+        "20 potentially unused function(s)",
+        "API surface: 30 exported functions, avg complexity 1.5"
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "id": "rec-1",
+      "title": "Create comprehensive CLAUDE.md",
+      "priority": 1,
+      "estimatedScoreImpact": 15,
+      "estimatedEffort": "30min",
+      "category": "Documentation"
+    },
+    {
+      "id": "rec-2",
+      "title": "Split actionpack/test/dispatch/routing_test.rb (5,314 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "half-day",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-3",
+      "title": "Split railties/test/application/configuration_test.rb (5,309 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "half-day",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-4",
+      "title": "Split actionview/test/template/form_helper_test.rb (4,301 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "half-day",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-5",
+      "title": "Exclude vendored file guides/assets/javascripts/@hotwired--turbo.js (3,939 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-6",
+      "title": "Split actionview/test/template/date_helper_test.rb (3,711 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "half-day",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-9",
+      "title": "Move hardcoded secrets to environment variables (1 file)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "2hr",
+      "category": "Security"
+    },
+    {
+      "id": "rec-10",
+      "title": "Fix 8 stale config references",
+      "priority": 2,
+      "estimatedScoreImpact": 10,
+      "estimatedEffort": "5min",
+      "category": "Documentation",
+      "dependsOn": [
+        "rec-1"
+      ]
+    },
+    {
+      "id": "rec-7",
+      "title": "Split `activerecord/test/models` directory (195 files)",
+      "priority": 2,
+      "estimatedScoreImpact": 3,
+      "estimatedEffort": "2hr",
+      "category": "Modularity"
+    },
+    {
+      "id": "rec-8",
+      "title": "Consolidate 270 single-file directories",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "Modularity"
+    },
+    {
+      "id": "rec-11",
+      "title": "Reduce context weight of activerecord/ (36% of token budget)",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "Context Efficiency"
+    }
+  ],
+  "tokenHeatmap": {
+    "entries": [
+      {
+        "path": "activerecord",
+        "tokens": 1724897,
+        "percentage": 36.2,
+        "isContextHog": true
+      },
+      {
+        "path": "actionpack",
+        "tokens": 695877,
+        "percentage": 14.6,
+        "isContextHog": false
+      },
+      {
+        "path": "activesupport",
+        "tokens": 600668,
+        "percentage": 12.6,
+        "isContextHog": false
+      },
+      {
+        "path": "actionview",
+        "tokens": 559645,
+        "percentage": 11.7,
+        "isContextHog": false
+      },
+      {
+        "path": "railties",
+        "tokens": 466416,
+        "percentage": 9.8,
+        "isContextHog": false
+      },
+      {
+        "path": "activemodel",
+        "tokens": 163792,
+        "percentage": 3.4,
+        "isContextHog": false
+      },
+      {
+        "path": "activestorage",
+        "tokens": 149662,
+        "percentage": 3.1,
+        "isContextHog": false
+      },
+      {
+        "path": "activejob",
+        "tokens": 94204,
+        "percentage": 2,
+        "isContextHog": false
+      },
+      {
+        "path": "actioncable",
+        "tokens": 78506,
+        "percentage": 1.6,
+        "isContextHog": false
+      },
+      {
+        "path": "actiontext",
+        "tokens": 73737,
+        "percentage": 1.5,
+        "isContextHog": false
+      },
+      {
+        "path": "guides",
+        "tokens": 58365,
+        "percentage": 1.2,
+        "isContextHog": false
+      },
+      {
+        "path": "actionmailer",
+        "tokens": 55752,
+        "percentage": 1.2,
+        "isContextHog": false
+      },
+      {
+        "path": "actionmailbox",
+        "tokens": 31637,
+        "percentage": 0.7,
+        "isContextHog": false
+      },
+      {
+        "path": "tools",
+        "tokens": 16850,
+        "percentage": 0.4,
+        "isContextHog": false
+      },
+      {
+        "path": "tasks",
+        "tokens": 321,
+        "percentage": 0,
+        "isContextHog": false
+      },
+      {
+        "path": "(root)",
+        "tokens": 298,
+        "percentage": 0,
+        "isContextHog": false
+      }
+    ],
+    "total": 4770627,
+    "totalFiles": 3451
+  },
+  "configDrift": {
+    "totalReferences": 8,
+    "validReferences": 0,
+    "staleReferences": [
+      {
+        "file": "AGENTS.md",
+        "line": 33,
+        "reference": "test/template/form_helper_test.rb",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 40,
+        "reference": "test/template/form_helper_test.rb",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 162,
+        "reference": "lib/*/helpers/",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 162,
+        "reference": "lib/*/tags/",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 163,
+        "reference": "test/template/<helper_name>_test.rb",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 171,
+        "reference": "lib/action_view/helpers/tags/",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 172,
+        "reference": "lib/action_view/helpers/form_helper.rb",
+        "type": "path",
+        "reason": "file or directory not found"
+      },
+      {
+        "file": "AGENTS.md",
+        "line": 173,
+        "reference": "lib/action_view/helpers/form_tag_helper.rb",
+        "type": "path",
+        "reason": "file or directory not found"
+      }
+    ],
+    "freshnessScore": 0
+  },
+  "security": {
+    "score": 85,
+    "findings": [
+      {
+        "check": "Sensitive files tracked",
+        "severity": "high",
+        "detail": "2 sensitive file(s) found in tree: secrets.yml, credentials.yml.tt",
+        "pointsDeducted": 10
+      },
+      {
+        "check": "Hardcoded secrets",
+        "severity": "high",
+        "detail": "1 file(s) contain potential hardcoded secrets: action_controller_advanced_topics.md",
+        "pointsDeducted": 5
+      }
+    ]
+  },
+  "contextProfile": {
+    "totalSourceTokens": 4770627,
+    "tiers": [
+      {
+        "windowSize": 32000,
+        "label": "32K tokens",
+        "coverage": 1,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 100000,
+        "label": "100K tokens",
+        "coverage": 2,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 200000,
+        "label": "200K tokens",
+        "coverage": 4,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 1000000,
+        "label": "1M tokens",
+        "coverage": 21,
+        "verdict": "Insufficient"
+      }
+    ],
+    "recommendedMinimum": "1M tokens",
+    "bestExperience": "1M tokens",
+    "topConsumers": [
+      {
+        "path": "activerecord",
+        "percentage": 36.2,
+        "tokens": 1724897
+      },
+      {
+        "path": "actionpack",
+        "percentage": 14.6,
+        "tokens": 695877
+      },
+      {
+        "path": "activesupport",
+        "percentage": 12.6,
+        "tokens": 600668
+      },
+      {
+        "path": "actionview",
+        "percentage": 11.7,
+        "tokens": 559645
+      },
+      {
+        "path": "railties",
+        "percentage": 9.8,
+        "tokens": 466416
+      }
+    ]
+  },
+  "languageChecks": [
+    {
+      "language": "Ruby",
+      "totalPenalty": 0,
+      "filesScanned": 100,
+      "checks": [
+        {
+          "name": "monkey-patching",
+          "occurrences": 4,
+          "penalty": 0
+        }
+      ]
+    }
+  ],
+  "tokenOptimization": {
+    "potentialSavings": {
+      "excludeTokens": 2761510,
+      "compressTokens": 188032,
+      "totalTokens": 8335784,
+      "savingsPercent": 35
+    },
+    "excludeRecommendations": [
+      {
+        "path": "actiontext/test/dummy/test/fixtures/files/racecar.jpg",
+        "tokens": 281016,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "actiontext/test/dummy/test/fixtures/files/racecar.jpg"
+      },
+      {
+        "path": "actiontext/test/fixtures/files/racecar.jpg",
+        "tokens": 281016,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "actiontext/test/fixtures/files/racecar.jpg"
+      },
+      {
+        "path": "activestorage/test/fixtures/files/racecar.jpg",
+        "tokens": 281016,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "activestorage/test/fixtures/files/racecar.jpg"
+      },
+      {
+        "path": "railties/test/fixtures/files/racecar.jpg",
+        "tokens": 281016,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "railties/test/fixtures/files/racecar.jpg"
+      },
+      {
+        "path": "activestorage/test/fixtures/files/racecar_rotated.jpg",
+        "tokens": 281015,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "activestorage/test/fixtures/files/racecar_rotated.jpg"
+      },
+      {
+        "path": "activestorage/test/fixtures/files/racecar.tif",
+        "tokens": 163865,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "activestorage/test/fixtures/files/racecar.tif"
+      },
+      {
+        "path": "activestorage/test/fixtures/files/video_with_rectangular_samples.mp4",
+        "tokens": 90384,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "activestorage/test/fixtures/files/video_with_rectangular_samples.mp4"
+      },
+      {
+        "path": "activestorage/test/fixtures/files/video.mp4",
+        "tokens": 68858,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "activestorage/test/fixtures/files/video.mp4"
+      },
+      {
+        "path": "activestorage/test/fixtures/files/rotated_video.mp4",
+        "tokens": 68773,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "activestorage/test/fixtures/files/rotated_video.mp4"
+      },
+      {
+        "path": "activestorage/test/fixtures/files/video_without_audio_stream.mp4",
+        "tokens": 50602,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "activestorage/test/fixtures/files/video_without_audio_stream.mp4"
+      },
+      {
+        "path": "activestorage/test/fixtures/files/video.webm",
+        "tokens": 40864,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "activestorage/test/fixtures/files/video.webm"
+      },
+      {
+        "path": "guides/assets/javascripts/@hotwired--turbo.js",
+        "tokens": 38517,
+        "reason": "Vendored file (3,939 lines) — replace with package dependency",
+        "pattern": "guides/assets/javascripts/@hotwired--turbo.js"
+      },
+      {
+        "path": "guides/assets/images/getting_started/background_jobs_light.jpg",
+        "tokens": 37852,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "guides/assets/images/getting_started/background_jobs_light.jpg"
+      },
+      {
+        "path": "guides/assets/images/getting_started/background_jobs_dark.jpg",
+        "tokens": 35927,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "guides/assets/images/getting_started/background_jobs_dark.jpg"
+      },
+      {
+        "path": "activestorage/test/fixtures/files/video_with_undefined_display_aspect_ratio.mp4",
+        "tokens": 32184,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "activestorage/test/fixtures/files/video_with_undefined_display_aspect_ratio.mp4"
+      },
+      {
+        "path": "yarn.lock",
+        "tokens": 31854,
+        "reason": "Generated/minified file",
+        "pattern": "yarn.lock"
+      },
+      {
+        "path": "guides/assets/images/getting_started/routing_light.jpg",
+        "tokens": 30701,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "guides/assets/images/getting_started/routing_light.jpg"
+      },
+      {
+        "path": "guides/assets/images/getting_started/routing_dark.jpg",
+        "tokens": 29485,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "guides/assets/images/getting_started/routing_dark.jpg"
+      },
+      {
+        "path": "guides/assets/images/getting_started/mvc_architecture_light.jpg",
+        "tokens": 28398,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "guides/assets/images/getting_started/mvc_architecture_light.jpg"
+      },
+      {
+        "path": "actionpack/test/fixtures/public/gzip/foo.zoo",
+        "tokens": 28241,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "actionpack/test/fixtures/public/gzip/foo.zoo"
+      }
+    ],
+    "compressRecommendations": [
+      {
+        "path": "actionview/test/template/date_helper_test.rb",
+        "tokens": 112294,
+        "estimatedCompressedTokens": 44918,
+        "reason": "Large file (3711 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "railties/test/application/configuration_test.rb",
+        "tokens": 44017,
+        "estimatedCompressedTokens": 17607,
+        "reason": "Large file (5309 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "actionview/test/template/form_helper_test.rb",
+        "tokens": 40808,
+        "estimatedCompressedTokens": 16323,
+        "reason": "Large file (4301 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "actionpack/test/dispatch/routing_test.rb",
+        "tokens": 37723,
+        "estimatedCompressedTokens": 15089,
+        "reason": "Large file (5314 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "actionview/lib/action_view/helpers/form_helper.rb",
+        "tokens": 30720,
+        "estimatedCompressedTokens": 12288,
+        "reason": "Large file (2767 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "actionpack/lib/action_dispatch/routing/mapper.rb",
+        "tokens": 25097,
+        "estimatedCompressedTokens": 10039,
+        "reason": "Large file (2547 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "activerecord/test/cases/relations_test.rb",
+        "tokens": 22728,
+        "estimatedCompressedTokens": 9091,
+        "reason": "Large file (2785 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      }
+    ]
+  },
+  "empirical": null,
+  "meta": {
+    "duration": 4097,
+    "claudeModel": "default",
+    "mode": "static-only",
+    "scoringVersion": "1.2.0"
+  }
+}

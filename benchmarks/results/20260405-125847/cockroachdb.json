@@ -1,0 +1,555 @@
+{
+  "version": "1.3.0",
+  "timestamp": "2026-04-05T12:59:10.895Z",
+  "target": "/tmp/llm-sense-benchmarks/cockroachdb",
+  "score": 73,
+  "grade": "B",
+  "previousScore": null,
+  "delta": null,
+  "categories": [
+    {
+      "name": "Documentation",
+      "score": 88,
+      "weight": 0.21,
+      "weighted": 18.5,
+      "findings": [
+        "README.md: 113 lines",
+        "CLAUDE.md: 146 lines",
+        "CLAUDE.md sections: 8/8 detected (score: 76/100)",
+        "AI tools detected: Claude Code",
+        "AI config files: .claude/settings.json (15/100)",
+        "AI config coverage: 1 tool(s) configured (+3 pts)",
+        "Config drift: 1 stale reference(s) found (freshness: 95%)",
+        "Subdirectory CLAUDE.md files: pkg/clusterversion/CLAUDE.md, pkg/roachprod/vm/gce/gcedb/CLAUDE.md, pkg/sql/CLAUDE.md, pkg/sql/logictest/CLAUDE.md, pkg/sql/schemachanger/CLAUDE.md",
+        "Inline comment ratio: 11.5%"
+      ]
+    },
+    {
+      "name": "File Sizes",
+      "score": 32,
+      "weight": 0.14,
+      "weighted": 4.5,
+      "findings": [
+        "Median file: 144 lines, P90: 742 lines",
+        "664 files over 1,000 lines (657 data/vendored excluded from scoring)"
+      ]
+    },
+    {
+      "name": "Structure",
+      "score": 60,
+      "weight": 0.08,
+      "weighted": 4.8,
+      "findings": [
+        "Max depth: 14, avg depth: 4.9",
+        "Avg 5.9 files per directory"
+      ]
+    },
+    {
+      "name": "Modularity",
+      "score": 95,
+      "weight": 0.1,
+      "weighted": 9.5,
+      "findings": [
+        "Avg 5.9 files/dir, 546 single-file dirs",
+        "201 barrel export files (index.ts/js)"
+      ]
+    },
+    {
+      "name": "Context Efficiency",
+      "score": 61,
+      "weight": 0.1,
+      "weighted": 6.1,
+      "findings": [
+        "10258 source files / 19287 total (53%)",
+        "14 generated files, 269 binary files, 8709 vendored files"
+      ]
+    },
+    {
+      "name": "Naming",
+      "score": 92,
+      "weight": 0.05,
+      "weighted": 4.6,
+      "findings": [
+        "92% per-directory naming consistency"
+      ]
+    },
+    {
+      "name": "Coupling",
+      "score": 100,
+      "weight": 0.06,
+      "weighted": 6,
+      "findings": [
+        "Avg fan-out: 2.1 imports/file, avg fan-in: 1.1",
+        "Max dependency chain depth: 2",
+        "Context fragmentation: 0% cross-cluster imports",
+        "20 orphan files (no local imports or importers)"
+      ]
+    },
+    {
+      "name": "Developer Infrastructure",
+      "score": 70,
+      "weight": 0.07,
+      "weighted": 4.9,
+      "findings": [
+        "CI: .github/workflows/auto-merge-backports.yml, .github/workflows/backport-stale.yml, .github/workflows/bincheck.yml, .github/workflows/blathers-backport.yml, .github/workflows/check-pebble-dep.yml, .github/workflows/cluster-ui-release-next.yml, .github/workflows/cluster-ui-release.yml, .github/workflows/code-cover-gen.yml, .github/workflows/code-cover-publish.yaml, .github/workflows/flaky-test-notifier.yml, .github/workflows/github-actions-essential-ci.yml, .github/workflows/github-actions-extended-ci.yml, .github/workflows/investigate.yml, .github/workflows/issue-autosolve.yml, .github/workflows/microbenchmarks-ci.yaml, .github/workflows/pr-analyzer-threestage.yml, .github/workflows/pr-autosolve-ci.yml, .github/workflows/pr-autosolve-comments-trigger.yml, .github/workflows/pr-autosolve-comments.yml, .github/workflows/stale.yml, .github/workflows/test-failure-stale.yml, .github/workflows/update_releases.yaml",
+        "Test command configured",
+        "Linter configured",
+        "Type checking configured",
+        "Issue templates configured",
+        "CONTRIBUTING.md present",
+        "~10348 TODO/FIXME/HACK comments found",
+        "Structured logging detected",
+        "Health check endpoint detected",
+        "OpenTelemetry configured"
+      ]
+    },
+    {
+      "name": "Security",
+      "score": 80,
+      "weight": 0.13,
+      "weighted": 10.4,
+      "findings": [
+        "Sensitive files tracked: 21 sensitive file(s) found in tree: testserver.key, ca-client-tenant.key, ca.key...",
+        "Hardcoded secrets: 1 file(s) contain potential hardcoded secrets: client_test.go"
+      ]
+    },
+    {
+      "name": "Code Quality",
+      "score": 54,
+      "weight": 0.06,
+      "weighted": 3.2,
+      "findings": [
+        "Python: -10 pts across 1 check(s)",
+        "Go: -10 pts across 2 check(s)",
+        "Go: 76 no-exported-comment finding(s) (informational)",
+        "Java/Kotlin: -10 pts across 1 check(s)",
+        "TypeScript/JavaScript: -1 pts across 2 check(s)",
+        "TypeScript/JavaScript: 8 barrel-reexport finding(s) (informational)",
+        "AST: 3481 functions in 374 files analyzed",
+        "Avg complexity: 3.8, avg nesting: 1.0, avg length: 25 lines",
+        "20 structural duplicate(s) detected",
+        "Hot functions: print (183 calls), makeKey (135 calls), tkey (126 calls)",
+        "20 potentially unused function(s)"
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "id": "rec-1",
+      "title": "Exclude vendored file pkg/sql/colexec/colexecsel/selection_ops.eg.go (60,885 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-2",
+      "title": "Exclude vendored file pkg/sql/colexec/colexecproj/proj_non_const_ops.eg.go (55,073 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-3",
+      "title": "Exclude vendored file pkg/sql/colexec/colexecprojconst/proj_const_right_ops.eg.go (53,039 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-4",
+      "title": "Exclude vendored file pkg/sql/colexec/colexecprojconst/proj_const_left_ops.eg.go (26,447 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-5",
+      "title": "Exclude vendored file pkg/kv/kvserver/replica_test.go (15,486 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-9",
+      "title": "Move hardcoded secrets to environment variables (1 file)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "2hr",
+      "category": "Security"
+    },
+    {
+      "id": "rec-6",
+      "title": "Split `pkg/sql` directory (429 files)",
+      "priority": 2,
+      "estimatedScoreImpact": 3,
+      "estimatedEffort": "2hr",
+      "category": "Modularity"
+    },
+    {
+      "id": "rec-10",
+      "title": "Fix 1 stale config reference",
+      "priority": 2,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "5min",
+      "category": "Documentation"
+    },
+    {
+      "id": "rec-7",
+      "title": "Consolidate 546 single-file directories",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "Modularity"
+    },
+    {
+      "id": "rec-8",
+      "title": "Configure LLM context exclusions for large lockfiles",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "5min",
+      "category": "Context Efficiency"
+    },
+    {
+      "id": "rec-11",
+      "title": "Reduce context weight of pkg/ (100% of token budget)",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "Context Efficiency"
+    }
+  ],
+  "tokenHeatmap": {
+    "entries": [
+      {
+        "path": "pkg",
+        "tokens": 29896699,
+        "percentage": 99.9,
+        "isContextHog": true
+      },
+      {
+        "path": "scripts",
+        "tokens": 36846,
+        "percentage": 0.1,
+        "isContextHog": false
+      },
+      {
+        "path": "cloud",
+        "tokens": 2749,
+        "percentage": 0,
+        "isContextHog": false
+      },
+      {
+        "path": "tools",
+        "tokens": 660,
+        "percentage": 0,
+        "isContextHog": false
+      },
+      {
+        "path": "c-deps",
+        "tokens": 370,
+        "percentage": 0,
+        "isContextHog": false
+      },
+      {
+        "path": "monitoring",
+        "tokens": 126,
+        "percentage": 0,
+        "isContextHog": false
+      }
+    ],
+    "total": 29937450,
+    "totalFiles": 10258
+  },
+  "configDrift": {
+    "totalReferences": 19,
+    "validReferences": 18,
+    "staleReferences": [
+      {
+        "file": "CLAUDE.md",
+        "line": 91,
+        "reference": "make the",
+        "type": "command",
+        "reason": "no \"the\" target in Makefile"
+      }
+    ],
+    "freshnessScore": 95
+  },
+  "security": {
+    "score": 80,
+    "findings": [
+      {
+        "check": "Sensitive files tracked",
+        "severity": "high",
+        "detail": "21 sensitive file(s) found in tree: testserver.key, ca-client-tenant.key, ca.key...",
+        "pointsDeducted": 15
+      },
+      {
+        "check": "Hardcoded secrets",
+        "severity": "high",
+        "detail": "1 file(s) contain potential hardcoded secrets: client_test.go",
+        "pointsDeducted": 5
+      }
+    ]
+  },
+  "contextProfile": {
+    "totalSourceTokens": 29937450,
+    "tiers": [
+      {
+        "windowSize": 32000,
+        "label": "32K tokens",
+        "coverage": 0,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 100000,
+        "label": "100K tokens",
+        "coverage": 0,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 200000,
+        "label": "200K tokens",
+        "coverage": 1,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 1000000,
+        "label": "1M tokens",
+        "coverage": 3,
+        "verdict": "Insufficient"
+      }
+    ],
+    "recommendedMinimum": "1M tokens",
+    "bestExperience": "1M tokens",
+    "topConsumers": [
+      {
+        "path": "pkg",
+        "percentage": 99.9,
+        "tokens": 29896699
+      },
+      {
+        "path": "scripts",
+        "percentage": 0.1,
+        "tokens": 36846
+      },
+      {
+        "path": "cloud",
+        "percentage": 0,
+        "tokens": 2749
+      },
+      {
+        "path": "tools",
+        "percentage": 0,
+        "tokens": 660
+      },
+      {
+        "path": "c-deps",
+        "percentage": 0,
+        "tokens": 370
+      }
+    ]
+  },
+  "languageChecks": [
+    {
+      "language": "Python",
+      "totalPenalty": 10,
+      "filesScanned": 16,
+      "checks": [
+        {
+          "name": "missing-type-hints",
+          "occurrences": 24,
+          "penalty": 10
+        }
+      ]
+    },
+    {
+      "language": "Go",
+      "totalPenalty": 10,
+      "filesScanned": 100,
+      "checks": [
+        {
+          "name": "ignored-error",
+          "occurrences": 21,
+          "penalty": 10
+        },
+        {
+          "name": "no-exported-comment",
+          "occurrences": 76,
+          "penalty": 0
+        }
+      ]
+    },
+    {
+      "language": "Java/Kotlin",
+      "totalPenalty": 10,
+      "filesScanned": 4,
+      "checks": [
+        {
+          "name": "raw-types",
+          "occurrences": 21,
+          "penalty": 10
+        }
+      ]
+    },
+    {
+      "language": "TypeScript/JavaScript",
+      "totalPenalty": 1,
+      "filesScanned": 100,
+      "checks": [
+        {
+          "name": "any-type",
+          "occurrences": 1,
+          "penalty": 1
+        },
+        {
+          "name": "barrel-reexport",
+          "occurrences": 8,
+          "penalty": 0
+        }
+      ]
+    }
+  ],
+  "tokenOptimization": {
+    "potentialSavings": {
+      "excludeTokens": 199736336,
+      "compressTokens": 0,
+      "totalTokens": 123888576,
+      "savingsPercent": 95
+    },
+    "excludeRecommendations": [
+      {
+        "path": "pkg/",
+        "tokens": 112768635,
+        "reason": "Vendored/third-party code",
+        "pattern": "pkg/**"
+      },
+      {
+        "path": "pkg/sql/vecindex/cspann/testdata/images-512d-10k.gob",
+        "tokens": 5099721,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/sql/vecindex/cspann/testdata/images-512d-10k.gob"
+      },
+      {
+        "path": "pkg/sql/vecindex/cspann/testdata/dbpedia-1536d-1k.gob",
+        "tokens": 2256034,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/sql/vecindex/cspann/testdata/dbpedia-1536d-1k.gob"
+      },
+      {
+        "path": "pkg/workload/geospatial/data/nyc_census_blocks.yaml.gz",
+        "tokens": 1860912,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/workload/geospatial/data/nyc_census_blocks.yaml.gz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/2/checkpoint-v26.1.tgz",
+        "tokens": 1265616,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/2/checkpoint-v26.1.tgz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/1/checkpoint-v26.1.tgz",
+        "tokens": 1253154,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/1/checkpoint-v26.1.tgz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/3/checkpoint-v26.1.tgz",
+        "tokens": 1229229,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/3/checkpoint-v26.1.tgz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/1/checkpoint-v23.2.tgz",
+        "tokens": 1183690,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/1/checkpoint-v23.2.tgz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/2/checkpoint-v23.2.tgz",
+        "tokens": 1179412,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/2/checkpoint-v23.2.tgz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/3/checkpoint-v24.2.tgz",
+        "tokens": 1156207,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/3/checkpoint-v24.2.tgz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/1/checkpoint-v25.4.tgz",
+        "tokens": 1143754,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/1/checkpoint-v25.4.tgz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/1/checkpoint-v23.1.tgz",
+        "tokens": 1125234,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/1/checkpoint-v23.1.tgz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/2/checkpoint-v23.1.tgz",
+        "tokens": 1116390,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/2/checkpoint-v23.1.tgz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/2/checkpoint-v24.2.tgz",
+        "tokens": 1101276,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/2/checkpoint-v24.2.tgz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/2/checkpoint-v25.4.tgz",
+        "tokens": 1087541,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/2/checkpoint-v25.4.tgz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/1/checkpoint-v24.2.tgz",
+        "tokens": 1070426,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/1/checkpoint-v24.2.tgz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/2/checkpoint-v25.2.tgz",
+        "tokens": 1038053,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/2/checkpoint-v25.2.tgz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/3/checkpoint-v23.1.tgz",
+        "tokens": 1032423,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/3/checkpoint-v23.1.tgz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/1/checkpoint-v25.3.tgz",
+        "tokens": 1007534,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/1/checkpoint-v25.3.tgz"
+      },
+      {
+        "path": "pkg/cmd/roachtest/fixtures/2/checkpoint-v25.1.tgz",
+        "tokens": 1003923,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "pkg/cmd/roachtest/fixtures/2/checkpoint-v25.1.tgz"
+      }
+    ],
+    "compressRecommendations": []
+  },
+  "empirical": null,
+  "meta": {
+    "duration": 12301,
+    "claudeModel": "default",
+    "mode": "static-only",
+    "scoringVersion": "1.2.0"
+  }
+}

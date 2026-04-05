@@ -1,0 +1,573 @@
+{
+  "version": "1.3.0",
+  "timestamp": "2026-04-05T12:59:38.355Z",
+  "target": "/tmp/llm-sense-benchmarks/django",
+  "score": 68,
+  "grade": "C",
+  "previousScore": null,
+  "delta": null,
+  "categories": [
+    {
+      "name": "Documentation",
+      "score": 27,
+      "weight": 0.21,
+      "weighted": 5.7,
+      "findings": [
+        "No CLAUDE.md — missing all 8 recommended sections",
+        "AI tools detected: GitHub Copilot",
+        "AI config files: copilot-instructions.md (1/100)",
+        "AI config coverage: 1 tool(s) configured (+3 pts)",
+        "Inline comment ratio: 7.3%"
+      ]
+    },
+    {
+      "name": "File Sizes",
+      "score": 56,
+      "weight": 0.14,
+      "weighted": 7.8,
+      "findings": [
+        "Median file: 39 lines, P90: 425 lines",
+        "97 files over 1,000 lines (13 data/vendored excluded from scoring)"
+      ]
+    },
+    {
+      "name": "Structure",
+      "score": 95,
+      "weight": 0.08,
+      "weighted": 7.6,
+      "findings": [
+        "Max depth: 7, avg depth: 4.8",
+        "Avg 4.3 files per directory"
+      ]
+    },
+    {
+      "name": "Modularity",
+      "score": 95,
+      "weight": 0.1,
+      "weighted": 9.5,
+      "findings": [
+        "Avg 4.3 files/dir, 79 single-file dirs",
+        "0 barrel export files (index.ts/js)"
+      ]
+    },
+    {
+      "name": "Context Efficiency",
+      "score": 62,
+      "weight": 0.1,
+      "weighted": 6.2,
+      "findings": [
+        "2942 source files / 6908 total (43%)",
+        "3 generated files, 108 binary files, 9 vendored files"
+      ]
+    },
+    {
+      "name": "Naming",
+      "score": 100,
+      "weight": 0.05,
+      "weighted": 5,
+      "findings": [
+        "100% per-directory naming consistency"
+      ]
+    },
+    {
+      "name": "Coupling",
+      "score": 100,
+      "weight": 0.06,
+      "weighted": 6,
+      "findings": [
+        "Avg fan-out: 2 imports/file, avg fan-in: 1",
+        "Max dependency chain depth: 1",
+        "Context fragmentation: 0% cross-cluster imports",
+        "20 orphan files (no local imports or importers)"
+      ]
+    },
+    {
+      "name": "Developer Infrastructure",
+      "score": 55,
+      "weight": 0.07,
+      "weighted": 3.9,
+      "findings": [
+        "CI: .github/workflows/benchmark.yml, .github/workflows/check-migrations.yml, .github/workflows/check_commit_messages.yml, .github/workflows/coverage_comment.yml, .github/workflows/coverage_tests.yml, .github/workflows/docs.yml, .github/workflows/labels.yml, .github/workflows/linters.yml, .github/workflows/new_contributor_pr.yml, .github/workflows/postgis.yml, .github/workflows/python_matrix.yml, .github/workflows/schedule_tests.yml, .github/workflows/schedules.yml, .github/workflows/screenshots.yml, .github/workflows/selenium.yml, .github/workflows/tests.yml",
+        "Test command configured",
+        "Linter configured",
+        "Pre-commit hooks configured",
+        "PR template configured",
+        "~29 TODO/FIXME/HACK comments found"
+      ]
+    },
+    {
+      "name": "Security",
+      "score": 90,
+      "weight": 0.13,
+      "weighted": 11.7,
+      "findings": [
+        "Hardcoded secrets: 1 file(s) contain potential hardcoded secrets: settings.py-tpl",
+        "Missing lockfile: Dependency file found but no lockfile — builds may not be reproducible"
+      ]
+    },
+    {
+      "name": "Code Quality",
+      "score": 85,
+      "weight": 0.06,
+      "weighted": 5.1,
+      "findings": [
+        "TypeScript/JavaScript: 3 dynamic-import finding(s) (informational)",
+        "Python: -10 pts across 1 check(s)",
+        "AST: 138 functions in 251 files analyzed",
+        "Avg complexity: 2.8, avg nesting: 0.8, avg length: 13 lines",
+        "Type annotation coverage: 13%",
+        "Hot functions: run (25 calls), process_commit_message (20 calls), _get_queryset (4 calls)",
+        "20 potentially unused function(s)"
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "id": "rec-1",
+      "title": "Create comprehensive CLAUDE.md",
+      "priority": 1,
+      "estimatedScoreImpact": 15,
+      "estimatedEffort": "30min",
+      "category": "Documentation"
+    },
+    {
+      "id": "rec-3",
+      "title": "Split tests/admin_views/tests.py (9,695 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "half-day",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-4",
+      "title": "Extract or exclude data file tests/migrations/test_operations.py (6,922 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "30min",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-5",
+      "title": "Split tests/schema/tests.py (5,949 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "half-day",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-6",
+      "title": "Split tests/migrations/test_autodetector.py (5,766 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "half-day",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-7",
+      "title": "Split tests/forms_tests/tests/test_forms.py (5,681 lines)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "half-day",
+      "category": "File Sizes"
+    },
+    {
+      "id": "rec-10",
+      "title": "Move hardcoded secrets to environment variables (1 file)",
+      "priority": 1,
+      "estimatedScoreImpact": 5,
+      "estimatedEffort": "2hr",
+      "category": "Security"
+    },
+    {
+      "id": "rec-2",
+      "title": "Add README.md",
+      "priority": 2,
+      "estimatedScoreImpact": 3,
+      "estimatedEffort": "5min",
+      "category": "Documentation"
+    },
+    {
+      "id": "rec-8",
+      "title": "Split `tests/template_tests/filter_tests` directory (60 files)",
+      "priority": 2,
+      "estimatedScoreImpact": 3,
+      "estimatedEffort": "2hr",
+      "category": "Modularity"
+    },
+    {
+      "id": "rec-9",
+      "title": "Consolidate 79 single-file directories",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "Modularity"
+    },
+    {
+      "id": "rec-11",
+      "title": "Reduce context weight of tests/ (68% of token budget)",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "Context Efficiency"
+    },
+    {
+      "id": "rec-12",
+      "title": "Reduce context weight of django/ (31% of token budget)",
+      "priority": 3,
+      "estimatedScoreImpact": 2,
+      "estimatedEffort": "2hr",
+      "category": "Context Efficiency"
+    }
+  ],
+  "tokenHeatmap": {
+    "entries": [
+      {
+        "path": "tests",
+        "tokens": 3227535,
+        "percentage": 67.9,
+        "isContextHog": true
+      },
+      {
+        "path": "django",
+        "tokens": 1484652,
+        "percentage": 31.2,
+        "isContextHog": true
+      },
+      {
+        "path": "(root)",
+        "tokens": 11843,
+        "percentage": 0.2,
+        "isContextHog": false
+      },
+      {
+        "path": "js_tests",
+        "tokens": 11743,
+        "percentage": 0.2,
+        "isContextHog": false
+      },
+      {
+        "path": "docs",
+        "tokens": 10270,
+        "percentage": 0.2,
+        "isContextHog": false
+      },
+      {
+        "path": "scripts",
+        "tokens": 9478,
+        "percentage": 0.2,
+        "isContextHog": false
+      }
+    ],
+    "total": 4755521,
+    "totalFiles": 2942
+  },
+  "configDrift": {
+    "totalReferences": 0,
+    "validReferences": 0,
+    "staleReferences": [],
+    "freshnessScore": 100
+  },
+  "security": {
+    "score": 90,
+    "findings": [
+      {
+        "check": "Hardcoded secrets",
+        "severity": "high",
+        "detail": "1 file(s) contain potential hardcoded secrets: settings.py-tpl",
+        "pointsDeducted": 5
+      },
+      {
+        "check": "Missing lockfile",
+        "severity": "medium",
+        "detail": "Dependency file found but no lockfile — builds may not be reproducible",
+        "pointsDeducted": 5
+      }
+    ]
+  },
+  "contextProfile": {
+    "totalSourceTokens": 4755521,
+    "tiers": [
+      {
+        "windowSize": 32000,
+        "label": "32K tokens",
+        "coverage": 1,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 100000,
+        "label": "100K tokens",
+        "coverage": 2,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 200000,
+        "label": "200K tokens",
+        "coverage": 4,
+        "verdict": "Insufficient"
+      },
+      {
+        "windowSize": 1000000,
+        "label": "1M tokens",
+        "coverage": 21,
+        "verdict": "Insufficient"
+      }
+    ],
+    "recommendedMinimum": "1M tokens",
+    "bestExperience": "1M tokens",
+    "topConsumers": [
+      {
+        "path": "tests",
+        "percentage": 67.9,
+        "tokens": 3227535
+      },
+      {
+        "path": "django",
+        "percentage": 31.2,
+        "tokens": 1484652
+      },
+      {
+        "path": "(root)",
+        "percentage": 0.2,
+        "tokens": 11843
+      },
+      {
+        "path": "js_tests",
+        "percentage": 0.2,
+        "tokens": 11743
+      },
+      {
+        "path": "docs",
+        "percentage": 0.2,
+        "tokens": 10270
+      }
+    ]
+  },
+  "languageChecks": [
+    {
+      "language": "TypeScript/JavaScript",
+      "totalPenalty": 0,
+      "filesScanned": 48,
+      "checks": [
+        {
+          "name": "dynamic-import",
+          "occurrences": 3,
+          "penalty": 0
+        }
+      ]
+    },
+    {
+      "language": "Python",
+      "totalPenalty": 10,
+      "filesScanned": 100,
+      "checks": [
+        {
+          "name": "missing-type-hints",
+          "occurrences": 549,
+          "penalty": 10
+        }
+      ]
+    }
+  ],
+  "tokenOptimization": {
+    "potentialSavings": {
+      "excludeTokens": 4418777,
+      "compressTokens": 274733,
+      "totalTokens": 11202064,
+      "savingsPercent": 42
+    },
+    "excludeRecommendations": [
+      {
+        "path": "docs/_theme/djangodocs/static/fontawesome/webfonts/fa-brands-400.svg",
+        "tokens": 125759,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/_theme/djangodocs/static/fontawesome/webfonts/fa-brands-400.svg"
+      },
+      {
+        "path": "tests/migrations/test_operations.py",
+        "tokens": 72926,
+        "reason": "Data file (6,922 lines) — extract to separate data store or JSON",
+        "pattern": "tests/migrations/test_operations.py"
+      },
+      {
+        "path": "tests/gis_tests/geoapp/fixtures/initial.json.gz",
+        "tokens": 32812,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "tests/gis_tests/geoapp/fixtures/initial.json.gz"
+      },
+      {
+        "path": "docs/_theme/djangodocs/static/fontawesome/webfonts/fa-brands-400.eot",
+        "tokens": 24396,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/_theme/djangodocs/static/fontawesome/webfonts/fa-brands-400.eot"
+      },
+      {
+        "path": "docs/_theme/djangodocs/static/fontawesome/webfonts/fa-brands-400.ttf",
+        "tokens": 24337,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/_theme/djangodocs/static/fontawesome/webfonts/fa-brands-400.ttf"
+      },
+      {
+        "path": "docs/ref/contrib/admin/_images/actions-as-modeladmin-methods.png",
+        "tokens": 22381,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/ref/contrib/admin/_images/actions-as-modeladmin-methods.png"
+      },
+      {
+        "path": "tests/utils_tests/files/strip_tags1.html",
+        "tokens": 21362,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "tests/utils_tests/files/strip_tags1.html"
+      },
+      {
+        "path": "docs/man/django-admin.1",
+        "tokens": 20875,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/man/django-admin.1"
+      },
+      {
+        "path": "django/contrib/auth/common-passwords.txt.gz",
+        "tokens": 20057,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "django/contrib/auth/common-passwords.txt.gz"
+      },
+      {
+        "path": "docs/ref/contrib/admin/_images/adding-actions-to-the-modeladmin.png",
+        "tokens": 18953,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/ref/contrib/admin/_images/adding-actions-to-the-modeladmin.png"
+      },
+      {
+        "path": "tests/files/magic.png",
+        "tokens": 17611,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "tests/files/magic.png"
+      },
+      {
+        "path": "docs/_theme/djangodocs/static/fontawesome/webfonts/fa-brands-400.woff",
+        "tokens": 15756,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/_theme/djangodocs/static/fontawesome/webfonts/fa-brands-400.woff"
+      },
+      {
+        "path": "docs/ref/contrib/admin/_images/list_filter.png",
+        "tokens": 15052,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/ref/contrib/admin/_images/list_filter.png"
+      },
+      {
+        "path": "docs/ref/contrib/admin/_images/admin-actions.png",
+        "tokens": 14502,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/ref/contrib/admin/_images/admin-actions.png"
+      },
+      {
+        "path": "docs/intro/_images/admin10t.png",
+        "tokens": 14299,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/intro/_images/admin10t.png"
+      },
+      {
+        "path": "docs/ref/contrib/admin/_images/fieldsets.png",
+        "tokens": 14184,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/ref/contrib/admin/_images/fieldsets.png"
+      },
+      {
+        "path": "docs/_theme/djangodocs/static/fontawesome/webfonts/fa-brands-400.woff2",
+        "tokens": 13482,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/_theme/djangodocs/static/fontawesome/webfonts/fa-brands-400.woff2"
+      },
+      {
+        "path": "docs/internals/_images/contribution_process.svg",
+        "tokens": 12469,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/internals/_images/contribution_process.svg"
+      },
+      {
+        "path": "docs/internals/_images/contribution_process.pdf",
+        "tokens": 12303,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "docs/internals/_images/contribution_process.pdf"
+      },
+      {
+        "path": "AUTHORS",
+        "tokens": 11279,
+        "reason": "Non-source file consuming significant tokens",
+        "pattern": "AUTHORS"
+      }
+    ],
+    "compressRecommendations": [
+      {
+        "path": "tests/admin_views/tests.py",
+        "tokens": 100120,
+        "estimatedCompressedTokens": 40048,
+        "reason": "Large file (9695 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "tests/schema/tests.py",
+        "tokens": 61774,
+        "estimatedCompressedTokens": 24710,
+        "reason": "Large file (5949 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "tests/forms_tests/tests/test_forms.py",
+        "tokens": 59571,
+        "estimatedCompressedTokens": 23828,
+        "reason": "Large file (5681 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "tests/migrations/test_autodetector.py",
+        "tokens": 52992,
+        "estimatedCompressedTokens": 21197,
+        "reason": "Large file (5766 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "tests/queries/tests.py",
+        "tokens": 45994,
+        "estimatedCompressedTokens": 18398,
+        "reason": "Large file (4674 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "tests/migrations/test_commands.py",
+        "tokens": 38306,
+        "estimatedCompressedTokens": 15322,
+        "reason": "Large file (3763 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "tests/model_forms/tests.py",
+        "tokens": 34438,
+        "estimatedCompressedTokens": 13775,
+        "reason": "Large file (3780 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "tests/mail/tests.py",
+        "tokens": 33120,
+        "estimatedCompressedTokens": 13248,
+        "reason": "Large file (3358 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      },
+      {
+        "path": "tests/admin_scripts/tests.py",
+        "tokens": 31573,
+        "estimatedCompressedTokens": 12629,
+        "reason": "Large file (3343 lines) — extract function signatures for AI context",
+        "strategy": "signatures-only"
+      }
+    ]
+  },
+  "empirical": null,
+  "meta": {
+    "duration": 2337,
+    "claudeModel": "default",
+    "mode": "static-only",
+    "scoringVersion": "1.2.0"
+  }
+}
