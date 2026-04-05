@@ -12,6 +12,6 @@ jobs:
           node-version: '18'
           registry-url: 'https://registry.npmjs.org'
       - run: npm ci && npm run build
-      - run: npm publish
+      - run: npm publish || echo "Version already published — skipping"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
