@@ -1,6 +1,6 @@
 {
   "name": "llm-sense",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "description": "Analyze how LLM-friendly a codebase is — static analysis + empirical testing with Claude Code",
   "main": "dist/index.js",
   "bin": {
@@ -35,7 +35,7 @@
   "bugs": {
     "url": "https://github.com/gididaf/llm-sense/issues"
   },
-  "homepage": "https://github.com/gididaf/llm-sense#readme",
+  "homepage": "https://gididaf.dev/tools/llm-sense/",
   "type": "module",
   "engines": {
     "node": ">=18"
