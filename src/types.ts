@@ -413,6 +413,7 @@ export interface TaskExecutionResult {
   taskId: string;
   taskType: 'bug' | 'feature';
   taskTitle: string;
+  taskDifficulty: 'easy' | 'medium' | 'hard';
   success: boolean;
   durationMs: number;
   durationApiMs: number;

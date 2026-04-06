@@ -35,6 +35,21 @@ export interface LlmSenseJsonOutput {
     avgTurns: number;
     avgCost: number;
     totalCost: number;
+    byDifficulty: {
+      easy: { total: number; succeeded: number };
+      medium: { total: number; succeeded: number };
+      hard: { total: number; succeeded: number };
+    };
+    tasks: Array<{
+      id: string;
+      type: string;
+      difficulty: string;
+      title: string;
+      success: boolean;
+      turns: number;
+      cost: number;
+      correctness: number;
+    }>;
   } | null;
   tokenHeatmap: {
     entries: Array<{ path: string; tokens: number; percentage: number; isContextHog: boolean }>;
@@ -125,6 +140,13 @@ export function buildJsonOutput(
     const successCount = report.taskResults.filter(r => r.success).length;
     const avgTurns = report.taskResults.reduce((s, r) => s + r.numTurns, 0) / report.taskResults.length;
     const avgCost = report.taskResults.reduce((s, r) => s + r.totalCostUsd, 0) / report.taskResults.length;
+
+    const byDifficulty = { easy: { total: 0, succeeded: 0 }, medium: { total: 0, succeeded: 0 }, hard: { total: 0, succeeded: 0 } };
+    for (const r of report.taskResults) {
+      byDifficulty[r.taskDifficulty].total++;
+      if (r.success) byDifficulty[r.taskDifficulty].succeeded++;
+    }
+
     empirical = {
       enabled: true,
       tasksRun: report.taskResults.length,
@@ -133,6 +155,17 @@ export function buildJsonOutput(
       avgTurns,
       avgCost,
       totalCost: report.totalCostUsd,
+      byDifficulty,
+      tasks: report.taskResults.map(r => ({
+        id: r.taskId,
+        type: r.taskType,
+        difficulty: r.taskDifficulty,
+        title: r.taskTitle,
+        success: r.success,
+        turns: r.numTurns,
+        cost: r.totalCostUsd,
+        correctness: r.correctnessScore,
+      })),
     };
   }
 

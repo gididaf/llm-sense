@@ -1,4 +1,4 @@
-import { SCORING_WEIGHTS, SCORING_WEIGHTS_NO_EMPIRICAL, SCORING_PROFILES } from '../constants.js';
+import { SCORING_WEIGHTS, SCORING_WEIGHTS_NO_EMPIRICAL, SCORING_PROFILES, DIFFICULTY_WEIGHTS } from '../constants.js';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { StaticAnalysisResult, TaskExecutionResult, CategoryScore, LanguageCheckResult, AstAnalysisResult, FinalReport } from '../types.js';
@@ -109,12 +109,18 @@ export function scoreDocumentation(s: StaticAnalysisResult['documentation']): Ca
   const recommendations: string[] = [];
 
   // README.md: 10 pts
+  // If CLAUDE.md exists and is comprehensive (4+ sections), README is redundant for LLMs —
+  // award the points anyway since the LLM already has project orientation via CLAUDE.md.
+  const hasComprehensiveClaudeMd = s.hasClaudeMd && s.claudeMdContent && s.claudeMdContent.missingSections.length <= 4;
   if (s.hasReadme) {
     score += 5;
     if (s.readmeLines > 50) score += 5;
     findings.push(`README.md: ${s.readmeLines} lines`);
+  } else if (hasComprehensiveClaudeMd) {
+    score += 10;
+    findings.push('README.md not present (CLAUDE.md provides equivalent LLM orientation)');
   } else {
-    recommendations.push('Add a README.md with project overview, setup instructions, and architecture notes');
+    recommendations.push('Add a README.md or CLAUDE.md with project overview, setup instructions, and architecture notes');
   }
 
   // CLAUDE.md existence: 10 pts
@@ -299,24 +305,37 @@ export function scoreTaskCompletion(taskResults: TaskExecutionResult[]): Categor
     return { name: 'Task Completion', score: 0, weight: 0, findings: ['No empirical tasks run'], recommendations: [] };
   }
 
-  const successCount = taskResults.filter(r => r.success).length;
-  const successRate = successCount / taskResults.length;
+  // Difficulty-weighted scoring: hard task success counts 2x, easy counts 0.5x
+  const totalWeight = taskResults.reduce((sum, r) => sum + DIFFICULTY_WEIGHTS[r.taskDifficulty], 0);
 
-  // Average correctness across ALL tasks (failures count as 0.0)
-  const avgCorrectness = taskResults.reduce((sum, r) => sum + r.correctnessScore, 0) / taskResults.length;
+  const weightedSuccess = taskResults.reduce((sum, r) =>
+    sum + (r.success ? DIFFICULTY_WEIGHTS[r.taskDifficulty] : 0), 0);
+  const weightedSuccessRate = weightedSuccess / totalWeight;
+
+  const weightedCorrectness = taskResults.reduce((sum, r) =>
+    sum + r.correctnessScore * DIFFICULTY_WEIGHTS[r.taskDifficulty], 0) / totalWeight;
 
   // Efficiency bonus rewards codebases where tasks complete in fewer turns.
   const successful = taskResults.filter(r => r.success);
   const avgTurnRatio = successful.length > 0
     ? successful.reduce((sum, r) => sum + r.numTurns, 0) / (successful.length * 30)
     : 1;
-  const efficiencyBonus = successRate > 0.5 ? (1 - avgTurnRatio) * 20 : 0;
+  const efficiencyBonus = weightedSuccessRate > 0.5 ? (1 - avgTurnRatio) * 20 : 0;
 
-  const score = clamp(successRate * 60 + avgCorrectness * 20 + efficiencyBonus);
+  const score = clamp(weightedSuccessRate * 60 + weightedCorrectness * 20 + efficiencyBonus);
 
+  // Per-difficulty breakdown for findings
+  const byDifficulty = (['easy', 'medium', 'hard'] as const).map(d => {
+    const tasks = taskResults.filter(r => r.taskDifficulty === d);
+    const passed = tasks.filter(r => r.success).length;
+    return tasks.length > 0 ? `${d}: ${passed}/${tasks.length}` : null;
+  }).filter(Boolean);
+
+  const successCount = taskResults.filter(r => r.success).length;
   const findings = [
-    `${successCount}/${taskResults.length} tasks completed successfully (${(successRate * 100).toFixed(0)}%)`,
-    `Average file correctness: ${(avgCorrectness * 100).toFixed(0)}% (expected files touched)`,
+    `${successCount}/${taskResults.length} tasks completed (${byDifficulty.join(', ')})`,
+    `Weighted success: ${(weightedSuccessRate * 100).toFixed(0)}% (difficulty weights: easy=0.5x, medium=1x, hard=2x)`,
+    `Weighted file correctness: ${(weightedCorrectness * 100).toFixed(0)}%`,
     `Avg turns: ${(taskResults.reduce((s, r) => s + r.numTurns, 0) / taskResults.length).toFixed(1)}`,
   ];
   const recommendations: string[] = [];
@@ -324,12 +343,14 @@ export function scoreTaskCompletion(taskResults: TaskExecutionResult[]): Categor
   const failed = taskResults.filter(r => !r.success);
   if (failed.length > 0) {
     recommendations.push(`${failed.length} tasks failed — review codebase structure in affected areas`);
-    for (const f of failed.slice(0, 3)) {
-      recommendations.push(`Task "${f.taskTitle}" failed: ${f.errors[0] || f.stopReason}`);
+    // Prioritize hard failures in recommendations
+    const sortedFailed = [...failed].sort((a, b) => DIFFICULTY_WEIGHTS[b.taskDifficulty] - DIFFICULTY_WEIGHTS[a.taskDifficulty]);
+    for (const f of sortedFailed.slice(0, 3)) {
+      recommendations.push(`Task "${f.taskTitle}" (${f.taskDifficulty}) failed: ${f.errors[0] || f.stopReason}`);
     }
   }
 
-  if (avgCorrectness < 0.5) {
+  if (weightedCorrectness < 0.5) {
     recommendations.push('Low file correctness — add CLAUDE.md with a module map so the LLM can find the right files');
   }
 
@@ -427,41 +448,33 @@ export function scoreCoupling(
 }
 
 export function scoreDevInfra(s: StaticAnalysisResult['devInfra']): CategoryScore {
-  // Total possible score from analyzer: 20 (3+3+2+2+2+3+3+2), scaled to 0-100
-  const score = clamp(s.score * 5);
+  // Total possible score from analyzer: 17 (1+4+3+2+3+1+1+2), scaled to 0-100
+  // Heavily weighted toward LLM-relevant infra (tests=4, linter=3, types=3, hooks=2, observability=2)
+  // Bonus points for project hygiene (CI=1, devcontainer=1, task discovery=1)
+  const score = clamp(Math.round(s.score * (100 / 17)));
 
   const findings: string[] = [];
   const recommendations: string[] = [];
 
-  // Core infra
-  if (s.hasCi) findings.push(`CI: ${s.ciFiles.join(', ')}`);
-  else recommendations.push('Add a CI configuration (GitHub Actions, GitLab CI, etc.)');
-
+  // Core LLM-relevant infra (high priority)
   if (s.hasTestCommand) findings.push('Test command configured');
-  else recommendations.push('Add a test command (scripts.test in package.json, Makefile test target, etc.)');
+  else recommendations.push('Add a test command — LLMs use tests as a feedback loop to verify changes');
 
   if (s.hasLinterConfig) findings.push('Linter configured');
-  else recommendations.push('Add a linter configuration (.eslintrc, biome.json, etc.)');
+  else recommendations.push('Add a linter configuration — LLMs use lint output to self-correct');
+
+  if (s.hasTypeChecking) findings.push('Type checking configured');
+  else recommendations.push('Add type checking — type errors are critical feedback for LLM-generated code');
 
   if (s.hasPreCommitHooks) findings.push('Pre-commit hooks configured');
-  if (s.hasTypeChecking) findings.push('Type checking configured');
-  else recommendations.push('Add type checking (tsconfig.json strict mode, mypy, pyright)');
 
-  // Devcontainer
-  if (s.hasDevcontainer) {
-    findings.push(`Devcontainer: ${s.devcontainerFeatures.join(', ')}`);
-  } else {
-    recommendations.push('Add .devcontainer/devcontainer.json for reproducible agent environments (Codespaces/devcontainer)');
-  }
-
-  // Task discovery
+  // Bonus infra (lower priority — doesn't directly help LLMs)
+  if (s.hasCi) findings.push(`CI: ${s.ciFiles.join(', ')}`);
+  if (s.hasDevcontainer) findings.push(`Devcontainer: ${s.devcontainerFeatures.join(', ')}`);
   if (s.hasIssueTemplates) findings.push('Issue templates configured');
   if (s.hasPrTemplate) findings.push('PR template configured');
   if (s.hasContributing) findings.push('CONTRIBUTING.md present');
   if (s.hasChangelog) findings.push('Changelog present');
-  if (!s.hasIssueTemplates && !s.hasPrTemplate) {
-    recommendations.push('Add .github/ISSUE_TEMPLATE/ and PULL_REQUEST_TEMPLATE.md so agents can discover work patterns');
-  }
   if (s.todoCount > 0) {
     findings.push(`~${s.todoCount} TODO/FIXME/HACK comments found`);
   }

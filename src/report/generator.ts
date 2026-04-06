@@ -337,12 +337,12 @@ export function generateReport(report: FinalReport): string {
     lines.push(`- **Avg turns:** ${avgTurns.toFixed(1)} | **Avg cost:** $${avgCost.toFixed(2)} | **Avg tokens:** ${Math.round(avgTokens).toLocaleString()}`);
     lines.push('');
 
-    lines.push('| # | Type | Title | Result | Turns | Cost | Files | Correctness |');
-    lines.push('|---|------|-------|--------|-------|------|-------|-------------|');
+    lines.push('| # | Type | Difficulty | Title | Result | Turns | Cost | Files | Correctness |');
+    lines.push('|---|------|------------|-------|--------|-------|------|-------|-------------|');
     for (let i = 0; i < report.taskResults.length; i++) {
       const r = report.taskResults[i];
       const corrPct = `${Math.round(r.fileOverlapScore * 100)}%`;
-      lines.push(`| ${i + 1} | ${r.taskType} | ${r.taskTitle} | ${r.success ? 'Pass' : 'Fail'} | ${r.numTurns} | $${r.totalCostUsd.toFixed(2)} | ${r.filesModified.length} | ${corrPct} |`);
+      lines.push(`| ${i + 1} | ${r.taskType} | ${r.taskDifficulty} | ${r.taskTitle} | ${r.success ? 'Pass' : 'Fail'} | ${r.numTurns} | $${r.totalCostUsd.toFixed(2)} | ${r.filesModified.length} | ${corrPct} |`);
     }
     lines.push('');
   }

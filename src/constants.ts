@@ -28,7 +28,11 @@ export const SCORING_WEIGHTS_NO_EMPIRICAL: Record<string, number> = {
   codeQuality: 0.06,
 };
 
-export const SCORING_VERSION = '1.2.0';
+export const SCORING_VERSION = '1.3.0';
+
+// ─── Difficulty-Tiered Empirical Testing ──────────────────
+export const DIFFICULTY_WEIGHTS = { easy: 0.5, medium: 1.0, hard: 2.0 } as const;
+export const DIFFICULTY_DISTRIBUTION = { easy: 0.4, medium: 0.4, hard: 0.2 } as const;
 
 // ─── Custom Scoring Profiles ───────────────────────────
 
