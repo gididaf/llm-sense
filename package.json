@@ -1,6 +1,6 @@
 {
   "name": "llm-sense",
-  "version": "2.4.1",
+  "version": "2.5.0",
   "description": "Analyze how LLM-friendly a codebase is — static analysis + empirical testing with Claude Code",
   "main": "dist/index.js",
   "bin": {
@@ -48,6 +48,7 @@
     "zod-to-json-schema": "^3.24.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
     "@types/node": "^22.13.10",
     "tsup": "^8.4.0",
     "typescript": "^5.8.2"
